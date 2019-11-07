@@ -1,0 +1,105 @@
+---
+title: "Untitled"
+author: "Nathaniel Decker"
+date: "11/6/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning = FALSE)
+rm(list=ls())
+x <- c("tidyverse", 'lubridate', "pander", "geosphere", "mapsapi", 'censusapi', "knitr") 
+lapply(x, library, character.only = TRUE)
+ci_calc <- function(z, y, n){ # This is the Agresti adjustment
+  z * sqrt((((y + 2)/(n+4))*(1-((y + 2)/(n+4))))/(n + 4))
+}
+censuskey <- 'f8b8ef413394e43d536ae3829d873bf0c246b1ba'
+srpos_link <- "../Data/MySurvey/srpos.csv"
+srpos <- read_csv(srpos_link) %>% 
+  mutate(PROPERTYADDRESSZIP = as.character(PROPERTYADDRESSZIP))
+```
+
+
+## Introduction
+
+Stratify all dagt by portfolion size bins
+
+
+##  Who Responded to the Survey?
+
+Stratification by metro?
+
+```{r, echo=FALSE, results='asis'}
+srpos %>% dplyr::count(MSANAME) %>% arrange(desc(n)) %>% transmute(`Metro Area` = MSANAME,Responses = n) %>% kable(caption = "Responses by metro of rental property")
+```
+
+Might want to include metro of owner, too (though I'll have to geocode that)
+
+Stratify by portfolio size
+
+```{r, echo=FALSE,results='asis'}
+srpos %>% mutate(Port_bin = cut(PortfolioEst, c(0,2,10,50, Inf))) %>% dplyr::count(Port_bin) %>% transmute(`Portfolio Size of Owner` = recode(Port_bin,"(0,2]" = "1-2 units","(2,10]" = "3-10 units","(10,50]" = "11-50 units","(50,Inf]" = ">50 units"), Respondents = n) %>% kable(caption="Most Respondents had more than 2, but less than 50 units")
+```
+
+##  What are their properties like?
+
+```{r}
+srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-operative",
+                               "Condominiumunit above" = "Condominium",
+                               "Mobile homeunit above" = "Mobile home",
+                               "Single family attached house, rowhouse or townhouse (not a condominium)property above" = "Single family attached house, rowhouse or townhouse",
+                               "Single family detached houseproperty above" = "Single family detached house",
+                               "Unit in a property with 2 to 4 housing unitsproperty containing the rental unit identified above" = "Unit in a property with 2 to 4 housing units",
+                               "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% drop_na(TYPE) %>% ggplot(aes(x = reorder(TYPE, TYPE))) + geom_bar() + coord_flip()
+```
+
+## What are their tenant like?
+
+## Rent, Rent Regulation
+
+## Rent Setting
+
+## Profitiblity & Market
+
+## Management
+
+## Maintenace and Capital Improvments
+
+## Tenant Screening and Marketing
+
+## Turnover
+
+## Section 8
+
+## Tenant Problems
+
+## Local Policies
+
+## Acquisition
+
+# Pland for Ownership
+
+## Financing
+
+## Ownership strucutre
+
+## Owners (push to top)
+
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
