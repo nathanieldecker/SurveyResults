@@ -22,24 +22,18 @@ srpos <- read_csv(srpos_link) %>%
 
 ## Introduction
 
+* Total number of responses varies from question to question because of incomplete surveys
+
 Stratify all dagt by portfolion size bins
 
-
-##  Who Responded to the Survey?
-
-Stratification by metro?
-
-```{r, echo=FALSE, results='asis'}
-# I'm not sure this is useful - might be better to just have a map.
-srpos %>% dplyr::count(MSANAME) %>% arrange(desc(n)) %>% transmute(`Metro Area` = MSANAME,Responses = n) %>% kable(caption = "Responses by metro of rental property")
-```
 
 Might want to include metro of owner, too (though I'll have to geocode that)
 
 Stratify by portfolio size
 
 ```{r, echo=FALSE,results='asis'}
-srpos %>% mutate(Port_bin = cut(PortfolioEst, c(0,2,10,50, Inf))) %>% dplyr::count(Port_bin) %>% transmute(`Portfolio Size of Owner` = recode(Port_bin,"(0,2]" = "1-2 units","(2,10]" = "3-10 units","(10,50]" = "11-50 units","(50,Inf]" = ">50 units"), Respondents = n) %>% kable(caption="Most Respondents had more than 2, but less than 50 units")
+srpos <- srpos %>% mutate(Port_bin = cut(PortfolioEst, c(0,2,10,50, Inf)))
+srpos %>% dplyr::count(Port_bin)  %>% transmute(`Portfolio Size of Owner` = recode(Port_bin,"(0,2]" = "1-2 units","(2,10]" = "3-10 units","(10,50]" = "11-50 units","(50,Inf]" = ">50 units"), Respondents = n) %>% kable(caption="Most Respondents had more than 2, but less than 50 units")
 ```
 
 ##  What are their properties like?
@@ -54,7 +48,7 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
                                "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% drop_na(TYPE) %>% ggplot(aes(x = reorder(TYPE, TYPE))) + geom_bar() + coord_flip()
 ```
 
-## What are their tenant like?
+## What are their tenants like?
 
 ## Rent, Rent Regulation
 
@@ -66,6 +60,51 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
 
 ## Maintenace and Capital Improvments
 
+```{r}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), is.na) %>% 
+  mutate(MinorWorkHowMuch = 12 - (MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
+           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13),
+         MinorWorkAny = MinorWorkHowMuch > 0) %>%
+  ggplot(aes(Port_bin, fill=MinorWorkAny)) + geom_bar(position = "fill") + labs(title = "About 75% of Owners Reported Performing Minor Work on the Surveyed Property in the Past 2 Years")
+```
+
+```{r}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), is.na) %>% 
+  mutate(MinorWorkHowMuch = 12 - (MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
+           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13),
+         MinorWorkAny = MinorWorkHowMuch > 0) %>%
+  ggplot(aes(Port_bin, MinorWorkHowMuch)) + geom_boxplot() + labs(title = "Owners Perfomed 2-4 Different Kinds of Jobs in the Past 2 Years")
+```
+
+Percent that did maintenance in the past 5 years
+
+```{r}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), is.na) %>% 
+  mutate(UPGDHowMuch = 10 - (UPGD_1 + UPGD_2 + UPGD_3 + UPGD_4 + UPGD_5 + UPGD_6 +
+           UPGD_8+ UPGD_10+ UPGD_11+ UPGD_12)) %>% ggplot(aes(Port_bin, UPGDHowMuch)) + geom_violin()
+```
+
+Percent that did capital improvement in past 5 years
+
+```{r}
+isnt.na <- function(x){
+ !is.na(x) 
+}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), isnt.na) %>% 
+  select(starts_with("UPGD"),ExternalReference) %>% 
+  transmute(ExternalReference,
+                                                              `Upgrading of heating system` = UPGD_1,
+            `Upgrading of the property's plumbing system` = UPGD_2,
+            `Addition or upgrading of air conditioning system` = UPGD_3,
+            `Replacement of kitchen facilities` = UPGD_4,
+            `Renovation of bathroom facilities` = UPGD_5,
+            `Addition of a security system` = UPGD_6,
+            `Addition of off-street parking` = UPGD_8,
+            Other = UPGD_10) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Bathroom Renovations were Most Common Capital Improvement")
+```
+Kinds of improvements
+
 ## Tenant Screening and Marketing
 
 ## Turnover
@@ -76,6 +115,12 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
 
 ## Local Policies
 
+```{r}
+srpos %>% drop_na(INSPECTD) %>% ggplot(aes(Port_bin, fill = INSPECTD)) + geom_bar(position = "fill") + labs(title = "20% to 40% of owners reported having their unit inspected in the past 2 years")
+```
+
+`r round((srpos %>% filter(INSPRSLT == "Passed inspection") %>% nrow()) / (srpos %>% filter(INSPECTD == "Yes") %>% nrow()) * 100,0)`% of owners who reported having an inspection passed the inspection.
+
 ## Acquisition
 
 # Pland for Ownership
@@ -85,4 +130,13 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
 ## Ownership strucutre
 
 ## Owners (push to top)
+
+##  Who Responded to the Survey?
+
+Stratification by metro?
+
+```{r, echo=FALSE, results='asis'}
+# I'm not sure this is useful - might be better to just have a map.
+srpos %>% dplyr::count(MSANAME) %>% arrange(desc(n)) %>% transmute(`Metro Area` = MSANAME,Responses = n) %>% kable(caption = "Responses by metro of rental property")
+```
 
