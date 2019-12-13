@@ -38,42 +38,137 @@ srpos %>% dplyr::count(Port_bin)  %>% transmute(`Portfolio Size of Owner` = reco
 
 ##  What are their properties like?
 
-```{r}
-srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-operative",
-                               "Condominiumunit above" = "Condominium",
-                               "Mobile homeunit above" = "Mobile home",
-                               "Single family attached house, rowhouse or townhouse (not a condominium)property above" = "Single family attached house, rowhouse or townhouse",
-                               "Single family detached houseproperty above" = "Single family detached house",
-                               "Unit in a property with 2 to 4 housing unitsproperty containing the rental unit identified above" = "Unit in a property with 2 to 4 housing units",
-                               "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% drop_na(TYPE) %>% ggplot(aes(x = reorder(TYPE, TYPE))) + geom_bar() + coord_flip()
-```
 
 ## What are their tenants like?
 
+```{r Q155}
+srpos %>% drop_na(Port_bin, Q155) %>% ggplot(aes(Port_bin, fill = fct_relevel(Q155,"Less than 1 year"))) +
+  geom_bar(position = "fill") + scale_fill_viridis_d()
+```
+
 ## Rent, Rent Regulation
+
+```{r}
+srpos %>% filter(InPopulation==1) %>% filter(RENT_clean > quantile(srpos$RENT_clean, 0.05, na.rm = TRUE) & RENT_clean < quantile(srpos$RENT_clean, 0.95, na.rm = TRUE)) %>% 
+  ggplot(aes(Port_bin, RENT_clean)) + geom_boxplot() + labs(title = "Rents Mostly Ranged from $800-$1,800")
+```
+
+Most of the variation in rents comes from the differences between geographic markets (e.g. San Francisco generally has higher rents than Elyria, OH) and the units themselves (e.g. 3-BR homes with a yard tend to have higher rents 2-BR units in a duplex with no yard).
+
+To adjust for these differences I calculated comprable rents for every unit using the Zillow Rent Index (ZRI). This Index is meant to estimate the rent for units that are comprable to the survey units in terms of geography (by ZIP code), building type (single-family rental v. apartments), size (measured in square feet), and time (by month of the survey response). The comprable estimates have a few weaknesses (e.g. lot size isn't considered, physical quality and floorplans aren't considerd), but ZRI comps do provide a useful baseline of the market.
+
+```{r}
+srpos %>% mutate(`Rent Relative to Market` = RENT_clean/zri_comp) %>% filter(rent_cf_zri_ratio > quantile(srpos$rent_cf_zri_ratio, 0.03, na.rm = TRUE) & rent_cf_zri_ratio < quantile(srpos$rent_cf_zri_ratio, 0.97, na.rm = TRUE)) %>% 
+  ggplot(aes(Port_bin, `Rent Relative to Market`)) + geom_boxplot() + labs(title = "Reported Rents Tended to be Close to, but a Little Under ZRI Comps")
+```
+
+```{r RentOutcomeStick}
+srpos %>% drop_na(RentOutcomeStick) %>% 
+  ggplot(aes(Port_bin, fill = fct_relevel(RentOutcomeStick, "Don't know", "Yes, rent increased by 20% or more","Yes, rent increased but by less than 20%","No change","Yes, rent decreased"))) + geom_bar(position = "fill") + labs(title = "Around Half of Owners Haven't Changed their Rent in the Past 2 Years")
+```
+
+What utilites are included in rent?
+
+```{r}
+isnt.na <- function(x){
+ !is.na(x) 
+}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("BUY")), isnt.na) %>%
+  select(starts_with("BUY"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            Electricity = BUY_1,
+            Gas = BUY_2,
+            `Fuel oil` = BUY_3,
+            Water = BUY_4,
+            `Trash Collection` = BUY_5) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + coord_flip() + labs(title="Other than Trash Collection and Water, Utilities are Rarely Included in Rent")
+```
+
+```{r}
+isnt.na <- function(x){
+ !is.na(x) 
+}
+srpos %>% filter(InPopulation == 1) %>% mutate(Voucher = ifelse(is.na(RNTSUB_1), RNTSUB_5,RNTSUB_1)) %>%
+  drop_na(Voucher) %>%
+  ggplot(aes(Port_bin, fill = Voucher)) + 
+  geom_bar(position = "fill") + labs(title="Voucher Use is Fairly Uncommon, May be More Prevalent Among Large Investors") + scale_fill_manual(values = c("grey93","grey10"))
+```
+
+
+```{r RENTREG}
+isnt.na <- function(x){
+ !is.na(x) 
+}
+srpos %>% filter(InPopulation == 1) %>%
+  drop_na(RENTREG) %>%
+  ggplot(aes(InPopulation, fill = RENTREG)) + 
+  geom_bar(position = "fill") + labs(title="Rent Control and Rent Regulation are Very Uncommon") + coord_flip()
+```
+
+```{r LENLEASE}
+srpos %>% 
+  drop_na(LENLEASE) %>% ggplot(aes(fct_relevel(LENLEASE,"More than 2 years","2 years","More than 1 year but less than 2 years","1 year","Less than one year or month-to-month", "No lease required"))) + 
+  geom_bar() + labs(title="1-Year Leases are Very Common") + coord_flip()
+```
 
 ## Rent Setting
 
+```{r RF}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("RF")), isnt.na) %>% 
+  select(starts_with("RF"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Last years rent plus inflation adjustment` = RF_1,
+            `Last year's operating costs, including debt service on mortgages` = RF_2,
+            `Expected operating cost increases for the coming year` = RF_3,
+            `Effect on tenant turnover` = RF_4,
+            `Rents for similar units gathered from tech source, e.g. online listings` = RF_5,
+            `Demand for rental units in the area` = RF_6,
+            `Vacancies in this area` = RF_8,
+            `Governmental rent restrictions or guidelines` = RF_10,
+            Other = RF_12) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Sampled Owners Considered a Wide Range of Factors When Setting Rents")
+```
+
 ## Profitiblity & Market
+
+```{r RENTRECT}
+srpos %>% mutate(RENTRECTSF = ifelse(RENTRECTSF == "12x 3000.=36000 - 21600 mortgage, =14400- 6000 asso. dues =8400-3240 management=4760 - electricity/TVphone 2000=2760", 36000,
+                                           ifelse(RENTRECTSF == "Rented to individuals then only $575 per month paid full year other tenants not paying full rent and one was con artist who paid nothing", 575*12,
+                                                  ifelse(RENTRECTSF == "650 x 12", 650 * 12,
+                                                         ifelse(RENTRECTSF == "Not 100% sure about 8 months, Had to evict old tenants and rehabb.", NA,
+                                                                ifelse(RENTRECTSF == "10K", 10000,
+                                                                       ifelse(RENTRECTSF == "1450 X 12", 1450 * 12,
+                                                                              ifelse(RENTRECTSF == "36k", 36000,
+                                                                                     ifelse(RENTRECTSF == "how much ever tenant would pay up to Max of $550 per br used not required.", NA,
+                                                                                            ifelse(RENTRECTSF == "Less than )24k" ,1935*12,
+                                                                                                   ifelse(RENTRECTSF == "around 25k", 25000,
+                                                                                                          ifelse(RENTRECTSF =="12 x 2400", 12 * 2400,
+                                                                                                                 ifelse(RENTRECTSF == "about  $19k", 19000,
+                                                                                                                        ifelse(RENTRECTSF == "c. $1650", 1650, RENTRECTSF)))))))))))))) %>% 
+  mutate(RENTRECTSF_clean = as.numeric(str_remove_all(RENTRECTSF,"[^0-9\\.]"))) %>%
+  mutate(RENTRECT = ifelse(is.na(RENTRECTSF_clean), RENTRECTMF_clean, RENTRECTSF_clean)) %>%
+  ggplot(aes(TYPE, RENTRECT)) + geom_boxplot() + scale_y_continuous(trans='log10') + coord_flip()
+```
 
 ## Management
 
 ## Maintenace and Capital Improvments
 
 ```{r}
-srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), is.na) %>% 
-  mutate(MinorWorkHowMuch = 12 - (MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
-           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13),
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), isnt.na) %>% 
+  mutate(MinorWorkHowMuch = MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
+           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13,
          MinorWorkAny = MinorWorkHowMuch > 0) %>%
-  ggplot(aes(Port_bin, fill=MinorWorkAny)) + geom_bar(position = "fill") + labs(title = "About 75% of Owners Reported Performing Minor Work on the Surveyed Property in the Past 2 Years")
+  ggplot(aes(Port_bin, fill=MinorWorkAny)) + geom_bar(position = "fill") + labs(title = "Over 75% of Owners Reported Performing Minor Maintenace on the Surveyed Property in the Past 2 Years")
 ```
 
 ```{r}
-srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), is.na) %>% 
-  mutate(MinorWorkHowMuch = 12 - (MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
-           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13),
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork")), isnt.na) %>% 
+  mutate(MinorWorkHowMuch = MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
+           MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13,
          MinorWorkAny = MinorWorkHowMuch > 0) %>%
-  ggplot(aes(Port_bin, MinorWorkHowMuch)) + geom_boxplot() + labs(title = "Owners Perfomed 2-4 Different Kinds of Jobs in the Past 2 Years")
+  ggplot(aes(Port_bin, MinorWorkHowMuch)) + geom_boxplot() + labs(title = "Most Owners Conducted 2-4 Different Types of Maintenance in the Past 2 Years")
 ```
 
 Percent that did maintenance in the past 5 years
@@ -87,9 +182,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), is.
 Percent that did capital improvement in past 5 years
 
 ```{r}
-isnt.na <- function(x){
- !is.na(x) 
-}
+
 srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), isnt.na) %>% 
   select(starts_with("UPGD"),ExternalReference) %>% 
   transmute(ExternalReference,
@@ -104,6 +197,19 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), isn
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Bathroom Renovations were Most Common Capital Improvement")
 ```
 Kinds of improvements
+
+```{r}
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("WorkReason")), isnt.na) %>% 
+  select(starts_with("WorkReason"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `To be able to charge higher rent`        = WorkReason_1,
+            `To increase the property's resale value` = WorkReason_2,
+            `To make the property code-compliant`     = WorkReason_3,
+            `To bring the property to a physical condition that meets the owner's personal standards`                = WorkReason_4,
+            Other                                     = WorkReason_6) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="The Most Commonly Cited Reason for Conducting Physical Work on the Property was to Bring the Property up to Owner's Own Standards")
+```
 
 ## Tenant Screening and Marketing
 
@@ -140,3 +246,13 @@ Stratification by metro?
 srpos %>% dplyr::count(MSANAME) %>% arrange(desc(n)) %>% transmute(`Metro Area` = MSANAME,Responses = n) %>% kable(caption = "Responses by metro of rental property")
 ```
 
+
+```{r}
+srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-operative",
+                               "Condominiumunit above" = "Condominium",
+                               "Mobile homeunit above" = "Mobile home",
+                               "Single family attached house, rowhouse or townhouse (not a condominium)property above" = "Single family attached house, rowhouse or townhouse",
+                               "Single family detached houseproperty above" = "Single family detached house",
+                               "Unit in a property with 2 to 4 housing unitsproperty containing the rental unit identified above" = "Unit in a property with 2 to 4 housing units",
+                               "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% drop_na(TYPE) %>% ggplot(aes(x = reorder(TYPE, TYPE))) + geom_bar() + coord_flip()
+```
