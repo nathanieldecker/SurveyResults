@@ -280,14 +280,20 @@ srpos %>% drop_na(OCMAINTU) %>% ggplot(aes(Port_bin, fill = OCMAINTU)) +
 
 ```{r MAINTCUR}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(MAINTCUR) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAINTCUR,"Don't know","Most maintenance postponed, major problems handled as quickly as possible","Most minor problems postponed, major problems handled immediately"))) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r MAIN3YR}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(MAIN3YR) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAIN3YR,"Don't know","Most maintenance postponed, major problems handled as quickly as possible","Most minor problems postponed, major problems handled immediately"))) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r MAINPCTI}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(MAINPCTI) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAINPCTI,"$2,500 or more", "$2,000 to $2,499","$1,500 to $1,999","$1,000 to $1,499","$500 to $999","$100 to $499"))) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r MinorWork1}
@@ -347,6 +353,19 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("WorkReason")
 
 ```{r Q150}
 # isnt.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q150")), isnt.na) %>% 
+  select(starts_with("Q150"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Cash from personal savings`        = Q150_1,
+            `Proceeds from the sale of another rental property` = Q150_2,
+            `Loan/funds from family or friends`     = Q150_3,
+            `PERSONAL loan or personal line of credit`                = Q150_4,
+            `BUSINESS loan or business line of credit`  = Q150_5,
+            `Home equity loan or line of credit (HELOC)`  = Q150_6,
+            `Online personal finance (SoFi, Lending Club, etc.)`  = Q150_7) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="Cash-on-Hand is by far the most common means of …")
 ```
 
 ## Tenant Screening and Marketing
@@ -357,16 +376,21 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("WorkReason")
 ```
 
 ```{r SC}
-# Give it the multiple answer isnt.na treatment
-# SC_1 "Personal interviews"
-# SC_2: Responses on an application form
-# SC_3 "Credit references or credit checks"
-# SC_4: "Employment checks or employer references"
-# SC_5: "Personal references
-# SC_6: "Bank references"
-# SC_7: "References from previous rental agent/owner/property owners association"
-# SC_8 "Proof of meeting minimum income requirement"
-# SC_9: "Online screening service (e.g. RentPrep)"
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("SC")), isnt.na) %>% 
+  select(starts_with("SC"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Personal interviews`        = SC_1,
+            `Responses on an application form` = SC_2,
+            `Credit references or credit checks`     = SC_3,
+            `Employment checks or employer references`                = SC_4,
+            `Personal references`  = SC_5,
+            `Bank references`  = SC_6,
+            `References from previous rental agent/owner/property owners association`  = SC_7,
+            `Proof of meeting minimum income requirement`  = SC_8,
+            `Online screening service (e.g. RentPrep)`  = SC_9) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="Owners Use Many Different Criteria in Tenant Selection")
 ```
 
 ```{r SCIMPORT}
@@ -374,7 +398,18 @@ srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_ba
 ```
 
 ```{r Q135}
-# isn't na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q135")), isnt.na) %>% 
+  select(starts_with("Q135"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Evidence that the tenant has and will continue to have income to pay rent`        = Q135_1,
+            `Evidence that the tenant will not be disruptive to their neighbors or the owner` = Q135_2,
+            `Whether the tenant is already personally known to the owner or the owner's friends or family`     = Q135_3,
+            `Whether the tenant is a good "fit" with the unit, regardless of the above criteria`                = Q135_4,
+            `Don't know`  = Q135_5,
+            Other  = Q135_6) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="Ability to Pay is the Most Common Criteria for Tenant Selection")
 ```
 
 ## Turnover
@@ -391,6 +426,7 @@ srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_ba
 
 ```{r WANTKEEP}
 # crosstab against portfolio bin
+srpos %>% drop_na(WANTKEEP) %>% ggplot(aes(Port_bin, fill=WANTKEEP)) + geom_bar(position = "fill")
 ```
 
 ```{r KPwhy}
@@ -398,39 +434,69 @@ srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_ba
 # KPwhy_2: "To retain desirable tenants"
 # KPwhy_3: "To minimize turnover costs"
 # KPwhy_4: "To lower maintenance costs"
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("KPwhy")), isnt.na) %>% 
+  select(starts_with("KPwhy"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `To retain desirable tenants` = KPwhy_2,
+            `To minimize turnover costs`  = KPwhy_3,
+            `To lower maintenance costs`  = KPwhy_4) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 16),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="Most Owners Trying to Reduce Turnover do so to Keep Good Tenants and Reduce Costs", subtitle = "Why is the management trying to minimize tenant turnover at this property?")
 ```
 
 ```{r KPhow}
-# isn't na
-# KPhow_1: "Rent concessions or reductions"
-# KPhow_2: "Increasing the level of maintenance"
-# KPhow_3: "Redecorating or upgrading the units"
-# KPhow_4: "Making other improvements to the property"
-# KPhow_5: "Improving services to the tenants"
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("KPhow")), isnt.na) %>% 
+  select(starts_with("KPhow"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Rent concessions or reductions`            = KPhow_1,
+            `Increasing the level of maintenance`       = KPhow_2,
+            `Redecorating or upgrading the units`       = KPhow_3,
+            `Making other improvements to the property` = KPhow_4,
+            `Improving services to the tenants`         = KPhow_5) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 16),val)) + xlab(NULL) + coord_flip() + 
+  labs(title="Owners Use a Variety of Methods to Reduce Turnover", subtitle = "What techniques are used to minimize tenant turnover at this property?")
 ```
 
 ## Section 8
 
 ```{r SEC8EVER}
 # normal cross tab with Port_bin
+srpos %>% drop_na(SEC8EVER) %>% ggplot(aes(Port_bin, fill = SEC8EVER)) + geom_bar(position = "fill") + labs(title = "Something", subtitle = "Under the current ownership have there EVER been tenants at this property whose rent was partially or completely paid with  Section 8, Housing Choice, or other rental subsidy certificates or vouchers?")
 ```
 
 ```{r SEC8OK}
 # normal cross tab with Port_bin
+srpos %>% drop_na(SEC8OK) %>% ggplot(aes(Port_bin, fill = SEC8OK)) + geom_bar(position = "fill") + labs(title = "blah", subtitle = "Would you accept NEW tenants whose rent is partially or completely paid with rental subsidy certificates or vouchers?")
 ```
 
 ```{r S8}
-# Normal isn't.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("S8")), isnt.na) %>% 
+  select(starts_with("S8"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Concerned about ability to collect on the vouchers or certificates`            = S8_1,
+            `Concerned about potential problems with the tenants who are part of these programs`       = S8_2,
+            `Too many regulations connected with these programs`       = S8_3,
+            `Too much paperwork and time involved` = S8_4,
+            `Rent for units in this property are too high to participate in the certificate and voucher programs`         = S8_5,
+            `Object to government involvement in rental subsidies` = S8_6,
+            Other = S8_7) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "Which of the following reasons describe why you do not want to accept new voucher tenants at this property?")
 ```
 
 ## Tenant Problems
 
 ```{r Q42}
-# Normal cross tab
+srpos %>% drop_na(Q42) %>% ggplot(aes(Port_bin, fill = Q42)) + geom_bar(position = "fill") + 
+  labs(subtitle = "In the past 2 years were any tenants at the property delinquent in their rent payments?")
 ```
 
 ```{r DLQPCNT}
-# Single bar, need to reorder factors.
+srpos %>% filter(InPopulation == 1) %>% drop_na(DLQPCNT) %>% ggplot(aes(InPopulation, fill = fct_relevel(DLQPCNT,"More than 12 month's rent payments were delinquent","10-12 month's rent","7-9 month's rent","4-6 month's rent","3 month's rent","2 month's rent","1 month's rent"))) + geom_bar(position="fill") + 
+  labs(subtitle = "In the past 2 years how often were tenants at this property delinquent in their rent payments?")
 ```
 
 ```{r DLQCSHFL}
@@ -438,11 +504,16 @@ srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_ba
 ```
 
 ```{r DLQ}
-# normal isn't.na
-# DLQ_1: "By notifying the tenants that they are late before taking further action"
-# DLQ_2: "By notifying the tenants that they are late and beginning collection procedures"
-# DLQ_3: "By beginning eviction procedures"
-# DLQ_4: "By doing nothing and waiting for the tenants to pay"
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DLQ")), isnt.na) %>% 
+  select(starts_with("DLQ"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `By notifying the tenants that they are late before taking further action`        = DLQ_1,
+            `By notifying the tenants that they are late and beginning collection procedures` = DLQ_2,
+            `By beginning eviction procedures`                                                = DLQ_3,
+            `By doing nothing and waiting for the tenants to pay`                             = DLQ_4) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "In the past 2 years, in what ways have you dealt with tenants who are delinquent in their rent payments?")
 ```
 
 ```{r Q163}
@@ -458,7 +529,8 @@ srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_ba
 ```
 
 ```{r EVICTNUM}
-# One bar
+srpos %>% filter(InPopulation == 1) %>% drop_na(EVICTNUM) %>% ggplot(aes(InPopulation, fill = fct_relevel(EVICTNUM,"More than once","Once"))) + geom_bar(position="fill") + 
+  labs(title = "About 10% of Owners Began an Eviction at the Surveyed Property in the Past 2 Years", subtitle = "In the past 2 years, how many times have tenant eviction procedures been started at this property?")
 ```
 
 ## Local Policies
