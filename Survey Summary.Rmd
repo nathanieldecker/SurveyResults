@@ -90,6 +90,11 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
 
 ```{r TNTINCOM}
 # Consolidate using the JAPA method
+srpos %>% mutate(TNTINCOM_reduced = ifelse(TNTINCOM == "Low income" | TNTINCOM == "Mostly low income" | TNTINCOM == "Somewhat diverse, with low and middle income tenants", "Low income",
+                                   ifelse(TNTINCOM == "Middle income" | TNTINCOM == "Mostly middle income" | TNTINCOM == "Somewhat diverse, with middle and upper income tenants" | TNTINCOM == "Very diverse, with low, middle, and upper income tenants", "Middle income",
+                                          ifelse(TNTINCOM == "Upper income" | TNTINCOM == "Mostly upper income",
+                                          "Upper income", NA)))) %>% drop_na(TNTINCOM_reduced) %>%
+  ggplot(aes(Port_bin, fill = TNTINCOM_reduced)) + geom_bar(position="fill")
 ```
 
 ```{r Q155}
@@ -190,18 +195,25 @@ srpos %>% drop_na(RentOutcome) %>% ggplot(aes(Port_bin, fill = RentOutcome)) + g
 
 ```{r PROFIT}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(PROFIT) %>% ggplot(aes(Port_bin, fill = fct_relevel(PROFIT,"No, had a loss","No, broke even", "Yes"))) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r PROFTCMP}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(PROFTCMP) %>% ggplot(aes(Port_bin, fill = fct_relevel(PROFTCMP,"Less profitable than similar properties"))) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r PRPVALCH}
 # crosstab fill bars across Port_bin
+srpos %>% drop_na(PRPVALCH) %>% ggplot(aes(Port_bin, fill = PRPVALCH)) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r RNTVALCH}
-# crosstab fill bars across Port_bin
+srpos %>% drop_na(RNTVALCH) %>% ggplot(aes(Port_bin, fill = RNTVALCH)) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r RENTRECT}
@@ -256,10 +268,12 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("ManagerRole"
 
 ```{r OCMAINTU}
 # Note that this is just individual owners. bar cross-tab across Port_bin
+srpos %>% drop_na(OCMAINTU) %>% ggplot(aes(Port_bin, fill = OCMAINTU)) +
+                                       geom_bar(position = "fill")
 ```
 
 ```{r OMNTTIMU}
-# This might be better to cross-tab across property types
+# This might be better to cross-tab across property types & need to reorder factors
 ```
 
 ## Maintenace and Capital Improvments
