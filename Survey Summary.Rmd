@@ -260,10 +260,14 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("ManagerRole"
 ```
 
 ```{r Q156}
-# Another choose multiple with 
-# Q156_1: Property management software
-# Q156_3: Microsoft Excel or similar spreadsheet software
-# Q156_4: Tools on property management / landlord websites
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q156")), isnt.na) %>% 
+  select(starts_with("Q156"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Property management software` = Q156_1,
+            `Microsoft Excel or similar spreadsheet software` = Q156_3,
+            `Tools on property management / landlord websites` = Q156_4,
+            `No technological tools are used to manage this property` = Q156_6) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val))  + coord_flip() + labs(subtitle="Which if any of the following types of technological tools are used to help manage the property?")
 ```
 
 ```{r OCMAINTU}
@@ -274,6 +278,7 @@ srpos %>% drop_na(OCMAINTU) %>% ggplot(aes(Port_bin, fill = OCMAINTU)) +
 
 ```{r OMNTTIMU}
 # This might be better to cross-tab across property types & need to reorder factors
+srpos %>% drop_na(OMNTTIMU) %>% ggplot(aes(Port_bin,fill=fct_relevel(OMNTTIMU,"Less than 1 hour per week","1 to 8 hours per week","9 to 24 hours per week","25 to 40 hours per week","More than 40 hours per week"))) + geom_bar(position="fill") + labs(subtitle = "About how many hours per week did the owner spend on the maintenance and/or management of this property in the past 12 months?")
 ```
 
 ## Maintenace and Capital Improvments
@@ -371,8 +376,38 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q150")), isn
 ## Tenant Screening and Marketing
 
 ```{r ADNOW_ADLATER}
+# ADNOW_1: Newspaper ads
+# ADNOW_3: Apartment property guides
+# ADNOW_4: Multiple Listing Service (Board of Realtors)
+# ADdNOW_5: \"For Rent\" sign at the property"
+# ADNOW_6: Word-of-mouth referrals through tenants
+# ADNOW_7: Online listing (e.g. Craigslist, apartments.com)
+# ADNOW_8: Other
+# ADNOW_9: A rental broker
 # Combine the mututally exclusive categories of ADNOW and ADLATER and do the isnt.na treatment
 # crosstab fill bars across Port_bin
+srpos %>% mutate(AD_1 = ifelse(is.na(ADNOW_1),ADLATER_1,ADNOW_1),
+                 AD_3 = ifelse(is.na(ADNOW_3),ADLATER_3,ADNOW_3),
+                 AD_4 = ifelse(is.na(ADNOW_4),ADLATER_4,ADNOW_4),
+                 AD_5 = ifelse(is.na(ADNOW_5),ADLATER_5,ADNOW_5),
+                 AD_6 = ifelse(is.na(ADNOW_6),ADLATER_6,ADNOW_6),
+                 AD_7 = ifelse(is.na(ADNOW_7),ADLATER_7,ADNOW_7),
+                 AD_8 = ifelse(is.na(ADNOW_8),ADLATER_8,ADNOW_8),
+                 AD_9 = ifelse(is.na(ADNOW_9),ADLATER_9,ADNOW_9)) %>%
+  select(-starts_with("ADNOW"),-starts_with("ADLATER")) %>% mutate_at(vars(starts_with("AD")), isnt.na) %>% 
+  select(starts_with("AD"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Newspaper ads`                                    = AD_1,
+            `Apartment property guides`                        = AD_3,
+            `Multiple Listing Service (Board of Realtors)`     = AD_4,
+            `"For Rent" sign at the property`                  = AD_5,
+            `Word-of-mouth referrals through tenants`          = AD_6,
+            `Online listing (e.g. Craigslist, apartments.com)` = AD_7,
+            Other                                              = AD_8,
+            `A rental broker`                                  = AD_9) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle="Which of the following types of advertising are used to market the property?")
 ```
 
 ```{r SC}
@@ -417,11 +452,13 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q135")), isn
 ```{r TenTyp}
 # Combine "Less than 6 months" & "6 months to less than 1 year"
 # then normal cross-tab
+srpos %>% mutate(TenTyp_reduced = ifelse(TenTyp == "Less than 6 months" | TenTyp == "6 months to less than 1 year", "Less than 1 year",TenTyp)) %>% drop_na(TenTyp_reduced) %>% ggplot(aes(Port_bin, fill = fct_relevel(TenTyp_reduced,"Less than 1 year"))) + geom_bar(position = "fill")
 ```
 
 ```{r TRNOVRRT}
 # combine "2 times" & "3 times" & "4 or more times"
 # then normal cross-tab
+srpos %>% mutate(TRNOVRRT_reduced = ifelse(TRNOVRRT == "4 or more times" | TRNOVRRT == "3 times" | TRNOVRRT == "2 times","2 or more times",TRNOVRRT)) %>% drop_na(TRNOVRRT_reduced) %>% ggplot(aes(Port_bin, fill=TRNOVRRT_reduced)) + geom_bar(position="fill")
 ```
 
 ```{r WANTKEEP}
@@ -430,10 +467,6 @@ srpos %>% drop_na(WANTKEEP) %>% ggplot(aes(Port_bin, fill=WANTKEEP)) + geom_bar(
 ```
 
 ```{r KPwhy}
-# isn't na
-# KPwhy_2: "To retain desirable tenants"
-# KPwhy_3: "To minimize turnover costs"
-# KPwhy_4: "To lower maintenance costs"
 srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("KPwhy")), isnt.na) %>% 
   select(starts_with("KPwhy"),ExternalReference) %>% 
   transmute(ExternalReference,
@@ -462,12 +495,10 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("KPhow")), is
 ## Section 8
 
 ```{r SEC8EVER}
-# normal cross tab with Port_bin
 srpos %>% drop_na(SEC8EVER) %>% ggplot(aes(Port_bin, fill = SEC8EVER)) + geom_bar(position = "fill") + labs(title = "Something", subtitle = "Under the current ownership have there EVER been tenants at this property whose rent was partially or completely paid with  Section 8, Housing Choice, or other rental subsidy certificates or vouchers?")
 ```
 
 ```{r SEC8OK}
-# normal cross tab with Port_bin
 srpos %>% drop_na(SEC8OK) %>% ggplot(aes(Port_bin, fill = SEC8OK)) + geom_bar(position = "fill") + labs(title = "blah", subtitle = "Would you accept NEW tenants whose rent is partially or completely paid with rental subsidy certificates or vouchers?")
 ```
 
@@ -501,6 +532,8 @@ srpos %>% filter(InPopulation == 1) %>% drop_na(DLQPCNT) %>% ggplot(aes(InPopula
 
 ```{r DLQCSHFL}
 # Single bar
+srpos %>% filter(InPopulation == 1) %>% drop_na(DLQCSHFL) %>% ggplot(aes(InPopulation, fill = DLQCSHFL)) + geom_bar(position="fill") + 
+  labs(subtitle = "Did delinquency of rent payments for this property cause a minor, moderate, or serious cash flow problem?")
 ```
 
 ```{r DLQ}
@@ -517,15 +550,41 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DLQ")), isnt
 ```
 
 ```{r Q163}
-# single bar
+srpos %>% filter(InPopulation == 1) %>% drop_na(Q163) %>% ggplot(aes(InPopulation, fill = Q163)) + geom_bar(position="fill") + 
+  labs(subtitle = "In the past 2 years have you had to deal with undesirable or disruptive behavior at this property?")
 ```
 
 ```{r Q46}
 # This one is more complicated. Could show the extent to which an ower has has ANY problem, and ignore the frequency. Numbers here are very small.
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q46")), isnt.na) %>% 
+  select(starts_with("Q46"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Vandalism to the INSIDE of unit(s)`                      = Q46_1,
+            `Vandalism to the OUTSIDE of building or to common areas` = Q46_2,
+            Theft                                                     = Q46_3,
+            `Loud or disruptive behavior`                             = Q46_4,
+            Violence                                                  = Q46_5,
+            `Drug usage`                                              = Q46_6,
+            `Overcrowding of units by friends/family of tenants`      = Q46_7,
+            Other                                                     = Q46_8) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(title = "Disruptive Behavior in Survyed Properties Was Rare, but Took Many forms When it Happened", subtitle = "In the past 2 years, how often did any of the following happen in any of the units or on the grounds of the property?")
 ```
 
 ```{r DRP}
-# Simple isn'tna
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DRP")), isnt.na) %>% 
+  select(starts_with("DRP"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `By talking to the disruptive individuals in person`                          = DRP_1,
+            `By issuing a warning in writing to the disruptive individuals`              = DRP_2,
+            `By calling the police and asking them to take action`                        = DRP_5,
+            `By requesting the tenant to move, but without beginning eviction procedures` = DRP_6,
+            `By beginning eviction procedures`                                            = DRP_7,
+            Other                                                                         = DRP_8) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
+  geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "In the past 2 years, HOW have you dealt with undesirable or disruptive behavior at this property?")
 ```
 
 ```{r EVICTNUM}
@@ -550,6 +609,20 @@ srpos %>% drop_na(INSPECTD) %>% ggplot(aes(Port_bin, fill = INSPECTD)) + geom_ba
 # Q55_10 is rent control and has >50
 # Q55_11 is ADA and has >50
 # Q55_10 is local property taxes and has >50
+srpos %>% filter(InPopulation == 1) %>% 
+  select(starts_with("Q55"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Lead-based paint requirements`                    = Q55_1,
+            `Waste disposal requirements`                      = Q55_3,
+            `Water Charges/Metering`                           = Q55_6,
+            `Zoning or property usage`                         = Q55_7,
+            `Parking restrictions in and around this property` = Q55_8,
+            `Rent control or stabilization`                    = Q55_10,
+            `Americans with Disabilities Act`                  = Q55_11,
+            `Local property taxes`                             = Q55_13) %>%
+  gather("kind", "val",-ExternalReference) %>% drop_na(val) %>% ggplot(aes(reorder(kind, val), fill=fct_relevel(val,"Yes, a lot", "Yes, somewhat", "Yes, a little"))) + 
+  geom_bar(position = "fill") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(title = "Public Regulations and Policies Were Rarely Cited as a an Operational Hindrance, Except for Property Taxes", subtitle = "Do the following regulations or restrictions make it difficult to operate this rental property?")
 ```
 
 ## Acquisition
@@ -568,48 +641,123 @@ srpos %>% mutate(ACQYEAR = ifelse(ACQYEAR == "?1980s" | ACQYEAR == "1980s" | ACQ
 
 ```{r Q164}
 # simple filled crosstab by Port_bin
+srpos %>% drop_na(Q164) %>% ggplot(aes(Port_bin, fill = fct_relevel(Q164,"An owner-occupied home"))) + geom_bar(position="fill") +labs(subtitle="What was the property used as prior to its acquisition by the present owner?")
 ```
 
 
 ```{ACQHOW}
 # 1-bar chart
+srpos %>% drop_na(ACQHOW) %>% ggplot(aes(Port_bin,fill=fct_relevel(ACQHOW,"By purchase but NOT at an auction"))) + geom_bar(position="fill")
 ```
 
 ```{r RP}
-# isn't.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("RP")), isnt.na) %>% 
+  select(starts_with("RP"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `As a residence for self or family member(s)`       = RP_1,
+            `To provide affordable housing in the community`    = RP_2,
+            `For income from residential rents`                 = RP_3,
+            `For long-term capital gains`                       = RP_4,
+            `To convert from residential to nonresidential use` = RP_5,
+            `To convert from nonresidential to residential use` = RP_6,
+            `As a tax shelter for other income`                 = RP_7,
+            `As retirement security`                            = RP_8,
+            `As future security for family member(s)`           = RP_9,
+            Other                                               = RP_10) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "Why did the owner acquire this property?")
 ```
 
 
 ```{r Q130}
-# isn't.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q130")), isnt.na) %>% 
+  select(starts_with("Q130"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `MLS listings`       = Q130_1,
+            `An online marketplace (e.g. Roofstock, Zillow, etc.)`    = Q130_2,
+            `Local real estate brokers`                 = Q130_3,
+            `Communication with local informants who are NOT licensed real estate brokers`                       = Q130_4,
+            `An in-person visit to the property, either with an agent or by myself` = Q130_5,
+            `Leads that did not come from MLS, a licensed broker, or online marketplace` = Q130_6,
+            Other                 = Q130_7) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "When selecting this property for purchase what services did the owner use?")
 ```
 
 ```{r LPRICE_clean}
 # LPRICE_clean
+srpos %>% filter(LPRICE_clean > quantile(srpos$LPRICE_clean, 0.05, na.rm = TRUE) & LPRICE_clean < quantile(srpos$LPRICE_clean, 0.95, na.rm = TRUE))  %>% ggplot(aes(Port_bin,LPRICE_clean/1000)) + geom_boxplot()
 ```
 
 ## Plans for Ownership
 
 ```{r RO}
-# isn't.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("RO")), isnt.na) %>% 
+  select(starts_with("RO"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `As a residence for self or family member(s)`       = RO_1,
+            `To provide affordable housing in the community`    = RO_2,
+            `For income from residential rents`                 = RO_3,
+            `For long-term capital gains`                       = RO_4,
+            `To convert from residential to nonresidential use` = RO_5,
+            `As a tax shelter for other income`                 = RO_6,
+            `As retirement security`                            = RO_7,
+            `As future security for family member(s)`           = RO_8,
+            `Currently for sale, but not yet sold`              = RO_9,
+            `Can't sell because mortgage is higher than current value` = RO_10,
+            `Want to sell but no buyers interested at current asking price` = RO_11,
+            Other = RO_12) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "What are the reasons for continuing to own this property today?")
 ```
 
 ```{r PLAN2OWN}
 # filled cross-tab by Port_bin
+srpos %>% drop_na(PLAN2OWN) %>% ggplot(aes(Port_bin,fill=fct_relevel(PLAN2OWN,"Less than 1 year","1 up to 3 years","3 up to 5 years","More than 5 years"))) + geom_bar(position = "fill") + labs(subtitle = "How much longer the owner expect to own this property?")
 ```
 
 ```{r BUYAGAIN}
-# filled cross-tab by Port_bin
+srpos %>% drop_na(BUYAGAIN) %>% ggplot(aes(Port_bin,fill=fct_relevel(BUYAGAIN,"No"))) + 
+  geom_bar(position = "fill") + 
+  labs(subtitle = "Would the owner acquire this property today if it were available?")
 ```
 
 ## Financing
 
 ```{r FINANCED}
-# isnt.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("FINANCED")), isnt.na) %>% 
+  select(starts_with("FINANCED"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Placed one new mortgage (land contract, etc.)`       = FINANCED_1,
+            `Placed two or more new mortgages`    = FINANCED_2,
+            `Borrowed with hard money loan (private investor loan)`                 = FINANCED_3,
+            `Property financed under a blanket mortgage (a loan that covers multiple properties)` = FINANCED_4,
+            `Paid all cash - no borrowing`                 = FINANCED_6,
+            Other                            = FINANCED_7,
+            `Borrowed using a PERSONAL loan or line of credit`           = FINANCED_8,
+            `Borrowed using a BUSINESS loan or line of credit`              = FINANCED_9,
+            `Borrowed using home equity loan or line of credit (HELOC)` = FINANCED_10) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "How was the acquisition of the property financed?")
 ```
 
 ```{r DWNPAY}
 # isnt.na
+srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DWNPAY")), isnt.na) %>% 
+  select(starts_with("DWNPAY"),ExternalReference) %>% 
+  transmute(ExternalReference,
+            `Sale of land or other real estate`       = DWNPAY_1,
+            `Sale of previously owned stocks, shares or other securities`    = DWNPAY_2,
+            `Sale of stock or partnership shares for this project`                 = DWNPAY_3,
+            `Owner's cash, bank deposits, share accounts, or bonds` = DWNPAY_4,
+            `Borrowed using home equity loan or line of credit (HELOC)`                 = DWNPAY_5,
+            `Other cash source`                            = DWNPAY_6,
+            `Other non-cash source`           = DWNPAY_7,
+            `No down payment required`              = DWNPAY_8,
+            `Borrowed using a PERSONAL loan or line of credit` = DWNPAY_10,
+            `Borrowed using a BUSINESS loan or line of credit` = DWNPAY_11) %>%
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) + coord_flip() + 
+  labs(subtitle = "What was the major source(s) of equity or down payment for this property?")
 ```
 
 ```{r MS}
