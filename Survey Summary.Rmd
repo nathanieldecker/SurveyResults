@@ -18,13 +18,20 @@ srpos_link <- "../Data/MySurvey/srpos.csv"
 srpos <- read_csv(srpos_link) %>% 
   mutate(PROPERTYADDRESSZIP = as.character(PROPERTYADDRESSZIP))
 bouncebacks <- read_csv("../Data/MySurvey/bouncebacks.csv")
+isnt.na <- function(x){
+ !is.na(x) 
+}
+theme_update(plot.title = element_text(lineheight=.8, face="bold", color = 'darkred'),
+             plot.caption = element_text(color="grey50", size=10),
+             legend.title = element_blank(),
+             axis.title.y = element_blank())
 ```
 
 
 ## Introduction
 
 This page summarizes the results of a survey of small rental property owners conducted by Nat Decker of the
-[Terner Center for Housing Innovation at UC Berkeley](http://ternercenter.berkeley.edu/). Firstly, I want to thank everyone who participated in the survey. As I mentioned in the initial postcard the owners of small rental properties are not well-understood by either academics or policymakers, and your honest and detailed responses in the survey will help clarify the real picture of small rental property ownership. I also wanted to provide additional thanks to everyone who agreed to participate in a follow-up interview. I truly appreciate your generosity with your time.
+[Terner Center for Housing Innovation at UC Berkeley](http://ternercenter.berkeley.edu/). Firstly, I want to thank everyone who participated in the survey. As I mentioned in the initial postcard, the owners of small rental properties are not well understood by either academics or policymakers and your answers to these survey questions will help show the real picture of small rental property ownership. I also want to provide additional thanks to everyone who agreed to participate in a follow-up interview. I truly appreciate your generosity with your time.
 
 
 ```{r SurveyPerformance, include=FALSE}
@@ -51,7 +58,7 @@ performance_tab <- tibble(Results = c("Total Sample",
 skipped <- srpos %>% filter(InPopulation == TRUE & Progress == 100) %>% map(is.na) %>% map(sum)
 ```
 
-The survey was solicited by mail and conducted online from March to August 2019. The table below shows the response rate for the survey. A total of 53,000 owners were solicited for the survey. Solicitations consisted of an initial invitation to the online survey via postcard and two rounds of follow-up reminders, also via postcard. The survey consisted of approximately 150 questions covering topics including the characteristics of the rental property, tenants, owner characteristics, and decision-making processes for rent-setting. Collectively `r bouncebacks %>% filter(MailDate == "First" | MailDate == "Full") %>% nrow %>% format(big.mark=",", scientific=FALSE)` solicitations were found to be undeliverable. `r sum(srpos$InPopulation == FALSE)` owners logged into the survey but were found to not be part of the sample population (e.g. the respondent had recently sold their rental property or the property was never a rental). Of the `r (53000 - (bouncebacks %>% filter(MailDate == "First" | MailDate == "Full") %>% nrow) - sum(srpos$InPopulation == FALSE)) %>% format(big.mark=",", scientific=FALSE)` remaining solicited owners, `r nrow(srpos) %>% format(big.mark=",", scientific=FALSE)` began the survey with `r sum(srpos$Progress == 100)` clicking through the entire survey and the remaining `r sum(srpos$Progress < 100)` ending the survey prematurely. Not all respondents who clicked through the entire survey answered all applicable questions. The final response rate, including partial responses, was `r round(sum(srpos$InPopulation == TRUE) / (53000 - (bouncebacks %>% filter(MailDate == "First" | MailDate == "Full") %>% nrow)) * 100,1)`%. Collectively, respondents owned `r srpos %>% dplyr::select(PortfolioEst) %>% sum %>% format(big.mark=",", scientific=FALSE)` units.
+The survey was solicited by mail and conducted online from March to August 2019. The table below shows the response rate for the survey. A total of 53,000 owners were solicited for the survey. Solicitations consisted of an initial invitation to the online survey via postcard and two rounds of follow-up reminders, also via postcard. The survey consisted of approximately 150 questions covering  a breoad range topics including the characteristics of the rental property, tenants, owner characteristics, and decision-making processes for rent-setting. Collectively `r bouncebacks %>% filter(MailDate == "First" | MailDate == "Full") %>% nrow %>% format(big.mark=",", scientific=FALSE)` solicitations were found to be undeliverable. `r sum(srpos$InPopulation == FALSE)` owners logged into the survey but were found to not be part of the sample population (e.g. the respondent had recently sold their rental property or the property was never a rental). Of the `r (53000 - (bouncebacks %>% filter(MailDate == "First" | MailDate == "Full") %>% nrow) - sum(srpos$InPopulation == FALSE)) %>% format(big.mark=",", scientific=FALSE)` remaining solicited owners, `r nrow(srpos) %>% format(big.mark=",", scientific=FALSE)` began the survey with `r sum(srpos$Progress == 100)` clicking through the entire survey and the remaining `r sum(srpos$Progress < 100)` ending the survey prematurely. Not all respondents who clicked through the entire survey answered all applicable questions. The final response rate, including partial responses, was `r round(sum(srpos$InPopulation == TRUE) / (53000) * 100,1)`%. Collectively, respondents owned `r srpos %>% dplyr::select(PortfolioEst) %>% sum %>% format(big.mark=",", scientific=FALSE)` units.
 
 
 ```{r performance, results="asis"}
@@ -72,9 +79,161 @@ srpos <- srpos %>% mutate(Port_bin = cut(PortfolioEst, c(0,2,10,50, Inf)))
 srpos %>% dplyr::count(Port_bin)  %>% transmute(`Portfolio Size of Owner` = recode(Port_bin,"(0,2]" = "1-2 units","(2,10]" = "3-10 units","(10,50]" = "11-50 units","(50,Inf]" = ">50 units"), Respondents = n) %>% kable(caption="Most Respondents had more than 2, but less than 50 units")
 ```
 
+## Who Were the Surveyed Owners?
+
+The owners who responded to the survey were quite diverse, reflecting some of the diversity of owners nationwide. Most owners held their properties under their own name, but larger owners were more likely to hold their properties in a corporate entity (mostly LLCs). 
+
+```{r OWNTYPE}
+srpos %>% mutate(OWNTYPEreduced = ifelse(OWNTYPE == "Individual investor, including joint ownership by two or more individuals, such as husband and wife" | OWNTYPE == "Trustee for estate", "Individual", "Corporate")) %>% drop_na(OWNTYPEreduced) %>% ggplot(aes(Port_bin, fill = OWNTYPEreduced)) + geom_bar(position = "fill") + labs(title = "Larger portfolios tend to be held in corporate entities", subtitle = "All corporation types (LLC, C-corp, etc.) classified as \'corporate\'")+
+    scale_y_continuous(labels = scales::percent)
+```
+
+```{r OWNAGE}
+srpos %>% filter(InPopulation == 1) %>% drop_na(OWNAGE) %>% ggplot(aes(InPopulation, fill = fct_relevel(OWNAGE,"Under 20"))) +
+  geom_bar(position = "fill") + labs(subtitle = "Which of the following ranges includes the owner's age?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r GENDER}
+srpos %>% filter(InPopulation == 1) %>% drop_na(GENDER) %>% ggplot(aes(InPopulation, fill = GENDER)) +
+  geom_bar(position = "fill") + labs(subtitle = "What is the owner's gender?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r OHISPAN_ORACE}
+srpos %>% filter(InPopulation == 1) %>% mutate(race = ifelse(OHISPAN == "Yes", "Hispanic", 
+                                                             ifelse(ORACE == "American Indian or Alaskan Native", "Other",
+                                                                    ifelse(ORACE == "White", "White, non-Hispanic", ORACE)))) %>% 
+  drop_na(race) %>% ggplot(aes(InPopulation, fill = race)) +
+  geom_bar(position = "fill") + labs(subtitle = "What is the owner's race?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r OINCOME}
+# just 1 bar
+srpos %>% mutate(OINCOME_reduced = factor(dplyr::recode(OINCOME,
+                               "$1,000,000 or more"   = "$500K+", # 18
+                               "$500,000 to $999,999" = "$500K+", # 34
+                               "$175,000 to $499,999" = "$175K to $500K", # 184
+                               "$125,000 to $174,999" = "$125K to 175K", #111
+                               "$85,000 to $124,999"  = "$85K to $125K", #90
+                               "$50,000 to $84,999"   = "$50K to $85K", # 58
+                               "$15,000 to $49,999"   = "Less than $50K", #54
+                               "Less than $15,000"    = "Less than $50K"), #6
+                               levels = c("$500K+",
+                                          "$2 to 4 million",
+                                          "$175K to $500K", #130
+                                          "$125K to 175K", #55
+                                          "$85K to $125K",
+                                          "$50K to $85K", # 62
+                                          "Less than $50K"))) %>% drop_na(OINCOME_reduced) %>% 
+  ggplot(aes(Port_bin, fill = OINCOME_reduced)) + geom_bar(position="fill") + labs(subtitle = "What was the owner's total gross income (before income taxes) in 2018 from ALL sources?")
+```
+
+```{r PINCTHIS}
+# just 1 bar
+srpos %>% mutate(PINCTHIS_reduced = factor(dplyr::recode(PINCTHIS,
+                               "100 percent"   = "More than 25%", 
+                               "75 to 99 percent" = "More than 25%", 
+                               "50 to 74 percent" = "More than 25%", 
+                               "25 to 49 percent" = "More than 25%", 
+                               "10 to 24 percent"  = "10 to 24%", 
+                               "1 to 9 percent"   = "1 to 9%", 
+                               "None, this property is losing money"   = "None, this property is losing money"),
+                               levels = c("More than 25%",
+                                          "10 to 24%",
+                                          "1 to 9%", 
+                                          "None, this property is losing money"))) %>% 
+  drop_na(PINCTHIS_reduced) %>% 
+  ggplot(aes(Port_bin, fill = PINCTHIS_reduced)) + geom_bar(position="fill") + labs(subtitle = "What percentage of gross income came from ownership of THIS property?")
+```
+
+```{r PINCALL}
+# just 1 bar
+srpos %>% drop_na(PINCALL) %>% ggplot(aes(Port_bin, fill = fct_relevel(PINCALL, "100 percent","75 to 99 percent","50 to 74 percent","25 to 49 percent","10 to 24 percent","1 to 9 percent","None"))) + geom_bar(position = "fill") + labs(subtitle = "What percentage of gross income came from ownership of ALL residential property?")
+```
+
+```{r OMNTTIMP}
+# Could try to see what a cross-tab looks like
+srpos %>% drop_na(OMNTTIMP) %>% ggplot(aes(Port_bin, fill = fct_relevel(OMNTTIMP, "100 percent","75 to 99 percent","50 to 74 percent","25 to 49 percent","Less than 25 percent"))) + geom_bar(position = "fill") + labs(subtitle = "What percentage of the owner's working time is devoted to all aspects of owning and managing residential rental properties?")
+```
+
+```{r employ}
+srpos %>% mutate(employ_reduced = factor(dplyr::recode(employ,
+                               "Employed full time (35 hours or more) for a different job (in addition to running the rental properties)"   = "Employed full time in different job", 
+                               "Employed part time (less than 35 hours) for a different job (in addition to running the rental properties)" = "Employed part time in different job", 
+                               "Homemaker" = "Not currently employed, but not retired", 
+                               "Not currently employed in another job" = "Not currently employed, but not retired", 
+                               "Unable to work due to illness or disability"  = "Not currently employed, but not retired",
+                               "Self-employed (running other businesses in addition to the rental properties)"   = "Self-employed in another business",
+                               "Retired" = "Retired"))) %>% 
+  mutate(employment_chr = ifelse(OMNTTIMP == "100 percent", "Full-time rental owner/manager", as.character(employ_reduced)),
+         employment = fct_relevel(employment_chr,"Full-time rental owner/manager","Retired")) %>%
+  drop_na(employment) %>% 
+  ggplot(aes(Port_bin, fill = employment)) + geom_bar(position="fill") + labs(subtitle = "What best describes your employment employment status?")
+```
+
+```{r Q160}
+srpos %>% filter(!is.na(Q160) & InPopulation == 1) %>% ggplot(aes(InPopulation, fill = Q160)) + geom_bar(position = "fill") + labs(title = "Only about 25% of owners who are not full-time investors or managers currently work in real estate",subtitle = "Is the owner's other employment real-estate related?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
+```
+
+```{r Q151}
+# This is a double-barreled question, sorta. This really only makes sense if coupled with their portfolio size.
+# Could break this down into a "target" and has met target. Or could somehow try to show both?
+srpos %>% mutate(`Portfolio Target` = ifelse(Q151 == "The owner has a set target of rental units. That target is:", "Owner has not yet reached target", Q151)) %>% drop_na(`Portfolio Target`) %>% ggplot(aes(Port_bin, fill = `Portfolio Target`)) + geom_bar(position = "fill") + labs(subtitle = "What statement best describes the owner's GOAL for the number of single family rental properties in their portfolio?")
+```
+
+```{r OWNVISIT}
+# This would be interesting to see with Port_bin. Might have to consolidate. Not that many do "More than once a week"
+srpos %>% drop_na(OWNVISIT) %>% ggplot(aes(Port_bin, fill = fct_relevel(OWNVISIT,
+                                                                        "More than once a week",
+                                                                        "About once a week",
+                                                                        "About twice a month",
+                                                                        "About once a month",
+                                                                        "Less than once a month",
+                                                                        "Never or almost never"))) +
+                                         geom_bar(position="fill") + 
+  labs(subtitle = "In the past 12 months, about how often did the owner visit this property?")
+```
+
+```{r OHOWLONG}
+# This would be interesting to see with Port_bin. Might have to consolidate. Relatively few new entrants
+srpos %>% mutate(OHOWLONG_reduced = factor(dplyr::recode(OHOWLONG,
+                               "30 years or more ago"   = "30 years or more ago", 
+                               "20 up to 30 years ago" = "20 up to 30 years ago", 
+                               "10 up to 20 years ago" = "10 up to 20 years ago", 
+                               "5 up to 10 years ago" = "5 up to 10 years ago", 
+                               "3 up to 5 years ago"  = "3 up to 5 years ago",
+                               "1 up to 3 years ago"   = "Less than 3 years ago",
+                               "Less than 1 year ago" = "Less than 3 years ago"),
+                               levels = c("30 years or more ago",
+                                          "20 up to 30 years ago", 
+                                          "10 up to 20 years ago", 
+                                          "5 up to 10 years ago", 
+                                          "3 up to 5 years ago",
+                                          "Less than 3 years ago"))) %>%
+  drop_na(OHOWLONG_reduced) %>% 
+  ggplot(aes(Port_bin, fill = OHOWLONG_reduced)) + geom_bar(position="fill") + 
+  labs(subtitle = "When did the owner first acquire a rental property?")
+```
+
+```{r Q144}
+srpos %>% drop_na(Q144) %>% ggplot(aes(Port_bin, fill = Q144)) + geom_bar(position = "fill") + 
+  labs(subtitle = "Did the owner sell any single-family properties since Jan 1, 2010?")
+```
+
 ##  What are their properties like?
 
-The survey was limited to the owners of small rental properties. These include any property with 4 or fewer units. Condominiums were included, as each condominium unit is its own property. Cooperative units were included as well, though only 2 respondants were asked about a cooperative unit. Most of the survey respondants owned a single-family detached house.
+The survey was limited to the owners of small rental properties. Condominiums were included, as each condominium unit is its own property. Cooperative units were included as well, though only 2 respondants were asked about a cooperative unit. Most of the survey respondants owned a single-family detached house.
 
 ```{r TYPE}
 srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-operative",
@@ -94,19 +253,20 @@ srpos %>% mutate(TNTINCOM_reduced = ifelse(TNTINCOM == "Low income" | TNTINCOM =
                                    ifelse(TNTINCOM == "Middle income" | TNTINCOM == "Mostly middle income" | TNTINCOM == "Somewhat diverse, with middle and upper income tenants" | TNTINCOM == "Very diverse, with low, middle, and upper income tenants", "Middle income",
                                           ifelse(TNTINCOM == "Upper income" | TNTINCOM == "Mostly upper income",
                                           "Upper income", NA)))) %>% drop_na(TNTINCOM_reduced) %>%
-  ggplot(aes(Port_bin, fill = TNTINCOM_reduced)) + geom_bar(position="fill")
+  ggplot(aes(Port_bin, fill = TNTINCOM_reduced)) + geom_bar(position="fill") + labs(subtitle = "What best describes the household income of tenants at the property?")
 ```
 
 ```{r Q155}
 srpos %>% drop_na(Port_bin, Q155) %>% ggplot(aes(Port_bin, fill = fct_relevel(Q155,"Less than 1 year"))) +
-  geom_bar(position = "fill") + scale_fill_viridis_d()
+  geom_bar(position = "fill") + scale_fill_viridis_d() + labs(subtitle = "How long have the current tenants lived in this unit?")
 ```
 
-## Rent, Rent Regulation
+## Rents & Rent Regulation
 
 ```{r RENT}
 srpos %>% filter(InPopulation==1) %>% filter(RENT_clean > quantile(srpos$RENT_clean, 0.05, na.rm = TRUE) & RENT_clean < quantile(srpos$RENT_clean, 0.95, na.rm = TRUE)) %>% 
-  ggplot(aes(Port_bin, RENT_clean)) + geom_boxplot() + labs(title = "Rents Mostly Ranged from $800-$1,800")
+  ggplot(aes(Port_bin, RENT_clean)) + geom_boxplot() + labs(title = "Rents Mostly Ranged from $800-$1,800", subtitle = "
+What is the monthly rent for the rental unit identified above? (If vacant, what is the asking rent?)")
 ```
 
 Most of the variation in rents comes from the differences between geographic markets (e.g. San Francisco generally has higher rents than Elyria, OH) and the units themselves (e.g. 3-BR homes with a yard tend to have higher rents 2-BR units in a duplex with no yard).
@@ -120,15 +280,12 @@ srpos %>% mutate(`Rent Relative to Market` = RENT_clean/zri_comp) %>% filter(ren
 
 ```{r RentOutcomeStick}
 srpos %>% drop_na(RentOutcomeStick) %>% 
-  ggplot(aes(Port_bin, fill = fct_relevel(RentOutcomeStick, "Don't know", "Yes, rent increased by 20% or more","Yes, rent increased but by less than 20%","No change","Yes, rent decreased"))) + geom_bar(position = "fill") + labs(title = "Around Half of Owners Haven't Changed their Rent in the Past 2 Years")
+  ggplot(aes(Port_bin, fill = fct_relevel(RentOutcomeStick, "Don't know", "Yes, rent increased by 20% or more","Yes, rent increased but by less than 20%","No change","Yes, rent decreased"))) + geom_bar(position = "fill") + labs(title = "Around Half of Owners Haven't Changed their Rent in the Past 2 Years", subtitle = "Has the rent for this unit changed since March 2017? (If vacant, is the current asking rent different than the rent paid by previous tenant?)")
 ```
 
-What utilites are included in rent?
+
 
 ```{r BUY}
-isnt.na <- function(x){
- !is.na(x) 
-}
 srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("BUY")), isnt.na) %>%
   select(starts_with("BUY"),ExternalReference) %>% 
   transmute(ExternalReference,
@@ -138,7 +295,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("BUY")), isnt
             Water = BUY_4,
             `Trash Collection` = BUY_5) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
-  geom_bar(stat = "identity") + coord_flip() + labs(title="Other than Trash Collection and Water, Utilities are Rarely Included in Rent")
+  geom_bar(stat = "identity") + coord_flip() + labs(title="Other than Trash Collection and Water, Utilities are Rarely Included in Rent", subtitle = "What utilites are included in rent?")
 ```
 
 ```{r RNTSUB}
@@ -148,7 +305,7 @@ isnt.na <- function(x){
 srpos %>% filter(InPopulation == 1) %>% mutate(Voucher = ifelse(is.na(RNTSUB_1), RNTSUB_5,RNTSUB_1)) %>%
   drop_na(Voucher) %>%
   ggplot(aes(Port_bin, fill = Voucher)) + 
-  geom_bar(position = "fill") + labs(title="Voucher Use is Fairly Uncommon, May be More Prevalent Among Large Investors") + scale_fill_manual(values = c("grey93","grey10"))
+  geom_bar(position = "fill") + labs(title="Voucher Use is Fairly Uncommon, May be More Prevalent Among Large Investors", subtitle = "Is the monthly rent for the tenant occupying the rental unit above partially or completely paid by -") + scale_fill_manual(values = c("grey93","grey10"))
 ```
 
 
@@ -159,13 +316,16 @@ isnt.na <- function(x){
 srpos %>% filter(InPopulation == 1) %>%
   drop_na(RENTREG) %>%
   ggplot(aes(InPopulation, fill = RENTREG)) + 
-  geom_bar(position = "fill") + labs(title="Rent Control and Rent Regulation are Very Uncommon")
+  geom_bar(position = "fill") + labs(title="Rent Control and Rent Regulation are Very Uncommon", subtitle = "Is the unit under rent control, rent stabilization, or some other type of rent regulation?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
 ```
 
 ```{r LENLEASE}
 srpos %>% 
   drop_na(LENLEASE) %>% ggplot(aes(fct_relevel(LENLEASE,"More than 2 years","2 years","More than 1 year but less than 2 years","1 year","Less than one year or month-to-month", "No lease required"))) + 
-  geom_bar() + labs(title="1-Year Leases are Very Common") + coord_flip()
+  geom_bar() + labs(title="1-Year Leases are Very Common", subtitle = "What is the length of lease for the rental unit?") + coord_flip()
 ```
 
 ## Rent Setting
@@ -183,37 +343,38 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("RF")), isnt.
             `Vacancies in this area` = RF_8,
             `Governmental rent restrictions or guidelines` = RF_10,
             Other = RF_12) %>%
-  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Sampled Owners Considered a Wide Range of Factors When Setting Rents")
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Sampled Owners Considered a Wide Range of Factors When Setting Rents", subtitle = "What are the most important factors considered when setting rents at thie surveyed property?")
 ```
 
 ```{r RentOutcome}
 srpos %>% drop_na(RentOutcome) %>% ggplot(aes(Port_bin, fill = RentOutcome)) + geom_bar(position = "fill") +
-  labs(title = "About Half of Owners Charged Market-Rate Rents for their Surveyed Unit")
+  labs(title = "About Half of Owners Charged Market-Rate Rents for their Surveyed Unit", subtitle = "Is the rent for the surveyed unit - ")
 ```
 
 ## Profitiblity & Market
 
 ```{r PROFIT}
 # crosstab fill bars across Port_bin
-srpos %>% drop_na(PROFIT) %>% ggplot(aes(Port_bin, fill = fct_relevel(PROFIT,"No, had a loss","No, broke even", "Yes"))) +
-                                       geom_bar(position = "fill")
+srpos %>% drop_na(PROFIT) %>% 
+  ggplot(aes(Port_bin, fill = fct_relevel(PROFIT,"No, had a loss","No, broke even", "Yes"))) + 
+  geom_bar(position = "fill") + labs(subtitle = "Did this property make a profit last year?")
 ```
 
 ```{r PROFTCMP}
 # crosstab fill bars across Port_bin
 srpos %>% drop_na(PROFTCMP) %>% ggplot(aes(Port_bin, fill = fct_relevel(PROFTCMP,"Less profitable than similar properties"))) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "Compared to similar properties in this area, do you think this property has been less profitable, more profitable, or about the same in the past year?")
 ```
 
 ```{r PRPVALCH}
 # crosstab fill bars across Port_bin
 srpos %>% drop_na(PRPVALCH) %>% ggplot(aes(Port_bin, fill = PRPVALCH)) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "In the past year, have the PROPERTY VALUES in the neighborhood where this property is located increased, decreased, or remained about the same?")
 ```
 
 ```{r RNTVALCH}
 srpos %>% drop_na(RNTVALCH) %>% ggplot(aes(Port_bin, fill = RNTVALCH)) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "In the past year, have the RENTS in the neighborhood where this property is located increased, decreased, or remained about the same?")
 ```
 
 ```{r RENTRECT}
@@ -234,14 +395,16 @@ srpos %>% mutate(RENTRECTSF = ifelse(RENTRECTSF == "12x 3000.=36000 - 21600 mort
   mutate(RENTRECTSF_clean = as.numeric(str_remove_all(RENTRECTSF,"[^0-9\\.]"))) %>%
   mutate(RENTRECT = ifelse(is.na(RENTRECTSF_clean), RENTRECTMF_clean, RENTRECTSF_clean)) %>%
   ggplot(aes(TYPE, RENTRECT)) + geom_boxplot() + scale_y_continuous(trans='log10') +
-  aes(reorder(stringr::str_wrap(TYPE, 30),RENTRECT)) + coord_flip()
+  aes(reorder(stringr::str_wrap(TYPE, 30),RENTRECT)) + coord_flip() + labs(subtitle = "
+What was the total gross rent collected in 2018 for the surveyed property?")
 ```
 
 ## Management
 
 ```{r Mgmt}
 srpos %>% drop_na(Mgmt) %>% ggplot(aes(Port_bin, fill = Mgmt)) + geom_bar(position = "fill") +
-  labs(title = "About 75% of Respondents Self-Manage their Rental")
+  labs(title = "About 75% of Respondents Self-Manage their Rental", subtitle = "
+Does the owner employ anyone to manage the surveyed property?")
 ```
 
 ```{r ManagerRole}
@@ -256,7 +419,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("ManagerRole"
             `Make mortgage payments` = ManagerRole_6,
             `Make tax payments or prepare tax estimates` = ManagerRole_7,
             `Initiate legal actions other than evictions` = ManagerRole_8) %>%
-  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val))  + coord_flip() + labs(title="Property Managers Most Often Performed Rent Collection, Tenant Selection, Routine Maintenance and Evicition Activities")
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val))  + coord_flip() + labs(title="Property Managers Most Often Performed Rent Collection, Tenant Selection, Routine Maintenance and Evicition Activities", subtitle = "What activities does the manager or management company perform?")
 ```
 
 ```{r Q156}
@@ -273,7 +436,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q156")), isn
 ```{r OCMAINTU}
 # Note that this is just individual owners. bar cross-tab across Port_bin
 srpos %>% drop_na(OCMAINTU) %>% ggplot(aes(Port_bin, fill = OCMAINTU)) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "In the past year did the owner contribute time to the maintenance and/or management of the property above?")
 ```
 
 ```{r OMNTTIMU}
@@ -286,19 +449,19 @@ srpos %>% drop_na(OMNTTIMU) %>% ggplot(aes(Port_bin,fill=fct_relevel(OMNTTIMU,"L
 ```{r MAINTCUR}
 # crosstab fill bars across Port_bin
 srpos %>% drop_na(MAINTCUR) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAINTCUR,"Don't know","Most maintenance postponed, major problems handled as quickly as possible","Most minor problems postponed, major problems handled immediately"))) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "Which category best describes the CURRENT maintenance PROGRAM for this property?")
 ```
 
 ```{r MAIN3YR}
 # crosstab fill bars across Port_bin
 srpos %>% drop_na(MAIN3YR) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAIN3YR,"Don't know","Most maintenance postponed, major problems handled as quickly as possible","Most minor problems postponed, major problems handled immediately"))) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "Which category best describes maintenance PLANS for this property over the next three years?")
 ```
 
 ```{r MAINPCTI}
 # crosstab fill bars across Port_bin
 srpos %>% drop_na(MAINPCTI) %>% ggplot(aes(Port_bin, fill = fct_relevel(MAINPCTI,"$2,500 or more", "$2,000 to $2,499","$1,500 to $1,999","$1,000 to $1,499","$500 to $999","$100 to $499"))) +
-                                       geom_bar(position = "fill")
+                                       geom_bar(position = "fill") + labs(subtitle = "How much is spent in a typical year on regular maintenance for the surveyed property?")
 ```
 
 ```{r MinorWork1}
@@ -306,7 +469,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("MinorWork"))
   mutate(MinorWorkHowMuch = MinorWork_1 + MinorWork_2 + MinorWork_3 + MinorWork_4 + MinorWork_5 + 
            MinorWork_6 + MinorWork_7 + MinorWork_8 + MinorWork_9 + MinorWork_10 + MinorWork_11 + MinorWork_13,
          MinorWorkAny = MinorWorkHowMuch > 0) %>%
-  ggplot(aes(Port_bin, fill=MinorWorkAny)) + geom_bar(position = "fill") + labs(title = "Over 75% of Owners Reported Performing Minor Maintenace on the Surveyed Property in the Past 2 Years")
+  ggplot(aes(Port_bin, fill=MinorWorkAny)) + geom_bar(position = "fill") + labs(title = "Over 75% of Owners Reported Performing Minor Maintenace on the Surveyed Property in the Past 2 Years", subtitle = "In the last 5 years was any of the following work done to the surveyed property?")
 ```
 
 ```{r MinorWork2}
@@ -339,7 +502,8 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), isn
             `Addition of a security system` = UPGD_6,
             `Addition of off-street parking` = UPGD_8,
             Other = UPGD_10) %>%
-  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Bathroom Renovations were Most Common Capital Improvement")
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + coord_flip() + labs(title="Bathroom Renovations were Most Common Capital Improvement", subtitle = "
+In the last 5 years have any of the following capital improvements or upgrades been made or started at the survyed property?")
 ```
 Kinds of improvements
 
@@ -353,7 +517,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("WorkReason")
             `To bring the property to a physical condition that meets the owner's personal standards`                = WorkReason_4,
             Other                                     = WorkReason_6) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
-  labs(title="The Most Commonly Cited Reason for Conducting Physical Work on the Property was to Bring the Property up to Owner's Own Standards")
+  labs(title="The Most Commonly Cited Reason for Conducting Physical Work on the Property was to Bring the Property up to Owner's Own Standards", subtitle = "For which of the following reasons has work been done on this rental property in the past five years?")
 ```
 
 ```{r Q150}
@@ -370,20 +534,12 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q150")), isn
             `Online personal finance (SoFi, Lending Club, etc.)`  = Q150_7) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
-  labs(title="Cash-on-Hand is by far the most common means of …")
+  labs(subtitle="What sources of funding did thew owner use for work on rental properties?")
 ```
 
 ## Tenant Screening and Marketing
 
 ```{r ADNOW_ADLATER}
-# ADNOW_1: Newspaper ads
-# ADNOW_3: Apartment property guides
-# ADNOW_4: Multiple Listing Service (Board of Realtors)
-# ADdNOW_5: \"For Rent\" sign at the property"
-# ADNOW_6: Word-of-mouth referrals through tenants
-# ADNOW_7: Online listing (e.g. Craigslist, apartments.com)
-# ADNOW_8: Other
-# ADNOW_9: A rental broker
 # Combine the mututally exclusive categories of ADNOW and ADLATER and do the isnt.na treatment
 # crosstab fill bars across Port_bin
 srpos %>% mutate(AD_1 = ifelse(is.na(ADNOW_1),ADLATER_1,ADNOW_1),
@@ -429,7 +585,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("SC")), isnt.
 ```
 
 ```{r SCIMPORT}
-srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_bar(position = "fill")
+srpos %>% drop_na(SCIMPORT) %>% ggplot(aes(Port_bin, fill = SCIMPORT)) + geom_bar(position = "fill") + labs(subtitle = "Which method is the most important in your selection process?")
 ```
 
 ```{r Q135}
@@ -444,7 +600,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q135")), isn
             Other  = Q135_6) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) + xlab(NULL) + coord_flip() + 
-  labs(title="Ability to Pay is the Most Common Criteria for Tenant Selection")
+  labs(title="Ability to Pay is the Most Common Criteria for Tenant Selection", subtitle = "What criteria are used when selecting tenants for this property?")
 ```
 
 ## Turnover
@@ -452,18 +608,18 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q135")), isn
 ```{r TenTyp}
 # Combine "Less than 6 months" & "6 months to less than 1 year"
 # then normal cross-tab
-srpos %>% mutate(TenTyp_reduced = ifelse(TenTyp == "Less than 6 months" | TenTyp == "6 months to less than 1 year", "Less than 1 year",TenTyp)) %>% drop_na(TenTyp_reduced) %>% ggplot(aes(Port_bin, fill = fct_relevel(TenTyp_reduced,"Less than 1 year"))) + geom_bar(position = "fill")
+srpos %>% mutate(TenTyp_reduced = ifelse(TenTyp == "Less than 6 months" | TenTyp == "6 months to less than 1 year", "Less than 1 year",TenTyp)) %>% drop_na(TenTyp_reduced) %>% ggplot(aes(Port_bin, fill = fct_relevel(TenTyp_reduced,"Less than 1 year"))) + geom_bar(position = "fill") + labs(subtitle = "How long have tenants typically stayed in this rental property?")
 ```
 
 ```{r TRNOVRRT}
 # combine "2 times" & "3 times" & "4 or more times"
 # then normal cross-tab
-srpos %>% mutate(TRNOVRRT_reduced = ifelse(TRNOVRRT == "4 or more times" | TRNOVRRT == "3 times" | TRNOVRRT == "2 times","2 or more times",TRNOVRRT)) %>% drop_na(TRNOVRRT_reduced) %>% ggplot(aes(Port_bin, fill=TRNOVRRT_reduced)) + geom_bar(position="fill")
+srpos %>% mutate(TRNOVRRT_reduced = ifelse(TRNOVRRT == "4 or more times" | TRNOVRRT == "3 times" | TRNOVRRT == "2 times","2 or more times",TRNOVRRT)) %>% drop_na(TRNOVRRT_reduced) %>% ggplot(aes(Port_bin, fill=TRNOVRRT_reduced)) + geom_bar(position="fill") + labs("In the past 12 months how many times has a tenant moved out of the surveyed property?")
 ```
 
 ```{r WANTKEEP}
 # crosstab against portfolio bin
-srpos %>% drop_na(WANTKEEP) %>% ggplot(aes(Port_bin, fill=WANTKEEP)) + geom_bar(position = "fill")
+srpos %>% drop_na(WANTKEEP) %>% ggplot(aes(Port_bin, fill=WANTKEEP)) + geom_bar(position = "fill") + labs(subtitle = "Is the management actively trying to minimize tenant turnover at this property?")
 ```
 
 ```{r KPwhy}
@@ -495,11 +651,11 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("KPhow")), is
 ## Section 8
 
 ```{r SEC8EVER}
-srpos %>% drop_na(SEC8EVER) %>% ggplot(aes(Port_bin, fill = SEC8EVER)) + geom_bar(position = "fill") + labs(title = "Something", subtitle = "Under the current ownership have there EVER been tenants at this property whose rent was partially or completely paid with  Section 8, Housing Choice, or other rental subsidy certificates or vouchers?")
+srpos %>% drop_na(SEC8EVER) %>% ggplot(aes(Port_bin, fill = SEC8EVER)) + geom_bar(position = "fill") + labs(subtitle = "Under the current ownership have there EVER been tenants at this property whose rent was partially or completely paid with  Section 8, Housing Choice, or other rental subsidy certificates or vouchers?")
 ```
 
 ```{r SEC8OK}
-srpos %>% drop_na(SEC8OK) %>% ggplot(aes(Port_bin, fill = SEC8OK)) + geom_bar(position = "fill") + labs(title = "blah", subtitle = "Would you accept NEW tenants whose rent is partially or completely paid with rental subsidy certificates or vouchers?")
+srpos %>% drop_na(SEC8OK) %>% ggplot(aes(Port_bin, fill = SEC8OK)) + geom_bar(position = "fill") + labs(subtitle = "Would you accept NEW tenants whose rent is partially or completely paid with rental subsidy certificates or vouchers?")
 ```
 
 ```{r S8}
@@ -527,13 +683,19 @@ srpos %>% drop_na(Q42) %>% ggplot(aes(Port_bin, fill = Q42)) + geom_bar(position
 
 ```{r DLQPCNT}
 srpos %>% filter(InPopulation == 1) %>% drop_na(DLQPCNT) %>% ggplot(aes(InPopulation, fill = fct_relevel(DLQPCNT,"More than 12 month's rent payments were delinquent","10-12 month's rent","7-9 month's rent","4-6 month's rent","3 month's rent","2 month's rent","1 month's rent"))) + geom_bar(position="fill") + 
-  labs(subtitle = "In the past 2 years how often were tenants at this property delinquent in their rent payments?")
+  labs(subtitle = "In the past 2 years how often were tenants at this property delinquent in their rent payments?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
 ```
 
 ```{r DLQCSHFL}
 # Single bar
 srpos %>% filter(InPopulation == 1) %>% drop_na(DLQCSHFL) %>% ggplot(aes(InPopulation, fill = DLQCSHFL)) + geom_bar(position="fill") + 
-  labs(subtitle = "Did delinquency of rent payments for this property cause a minor, moderate, or serious cash flow problem?")
+  labs(subtitle = "Did delinquency of rent payments for this property cause a minor, moderate, or serious cash flow problem?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
 ```
 
 ```{r DLQ}
@@ -551,7 +713,10 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DLQ")), isnt
 
 ```{r Q163}
 srpos %>% filter(InPopulation == 1) %>% drop_na(Q163) %>% ggplot(aes(InPopulation, fill = Q163)) + geom_bar(position="fill") + 
-  labs(subtitle = "In the past 2 years have you had to deal with undesirable or disruptive behavior at this property?")
+  labs(subtitle = "In the past 2 years have you had to deal with undesirable or disruptive behavior at this property?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
 ```
 
 ```{r Q46}
@@ -589,7 +754,10 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DRP")), isnt
 
 ```{r EVICTNUM}
 srpos %>% filter(InPopulation == 1) %>% drop_na(EVICTNUM) %>% ggplot(aes(InPopulation, fill = fct_relevel(EVICTNUM,"More than once","Once"))) + geom_bar(position="fill") + 
-  labs(title = "About 10% of Owners Began an Eviction at the Surveyed Property in the Past 2 Years", subtitle = "In the past 2 years, how many times have tenant eviction procedures been started at this property?")
+  labs(title = "About 10% of Owners Began an Eviction at the Surveyed Property in the Past 2 Years", subtitle = "In the past 2 years, how many times have tenant eviction procedures been started at this property?") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.x = element_blank())
 ```
 
 ## Local Policies
@@ -762,92 +930,76 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DWNPAY")), i
 
 ```{r MS}
 # Limit to MS_1 and MS_5 and then cross-tab against Port_bin
+srpos %>% mutate(Mortgage = ifelse(is.na(MS_1),MS_5,MS_1)) %>% drop_na(Mortgage) %>% 
+  ggplot(aes(Port_bin, fill = Mortgage)) + geom_bar(position = "fill")
 ```
 
 ```{r MORTINS1}
 # Combine "A private mortgage insurance company?" and "The Department of Veterans Affairs (VA)?" and "The Federal Housing Administration (FHA)?" and compare to "None of the above". 1-bar
+srpos %>% mutate(`Mortgage Insurance` = fct_recode(MORTINS1,"VA or FHA Insurance" = "The Department of Veterans Affairs (VA)?", "VA or FHA Insurance" = "The Federal Housing Administration (FHA)?", "Private Insurance" = "A private mortgage insurance company?")) %>% drop_na(`Mortgage Insurance`) %>% 
+  ggplot(aes(Port_bin, fill = `Mortgage Insurance`)) + geom_bar(position = "fill") + labs(subtitle = "Who insures or guarantees the current FIRST mortgage on this property?")
 ```
 
 ```{r Q152}
 # Could try a cross-tab here add the same question Q169
+srpos %>% mutate(ins = ifelse(is.na(Q152),Q169,Q152)) %>% drop_na(ins) %>% ggplot(aes(Port_bin, fill = ins)) + geom_bar(position = "fill") + labs(subtitle = "Did the owner ever speak with an institution to finance a single family rental property but was turned away or unable to get financing?")
 ```
 
 ```{r Q153_170}
+# These numbers are too small
 # isn'tna and add the same question Q170
+# srpos %>% mutate(sold = ifelse(is.na(Q153),Q170,Q153)) %>% drop_na(sold) %>% ggplot(aes(Port_bin, fill = sold)) + geom_bar(position = "fill") + labs(subtitle = "Why did the lender refuse to provide financing?")
+# Q153_1: Credit score was too low
+# Q153_2: Required down payment was too large
+# Q153_3: Portfolio of mortgaged rental properties too large
+# Q153_4 & Q170_4: "Debt-to-income ratio was too high"
+# Q153_5 & Q170_5: Comps (appraisals) were not high enough to justify loan amount
+# Q153_6 & Q170_6: Lender did not want to provide financing for rental properties at all
+
 ```
 
 ```{r Q161}
 # Consolidate and cross-tab across Port_bin
+srpos %>% mutate(Q161_reduced = factor(dplyr::recode(Q161,
+                               "$20+ million" = "2.5+ million", # 3
+                               "$15 million to $19.9 million" = "2.5+ million", # 2
+                               "$10 million to $14.9 million" = "2.5+ million", # 3
+                               "$7.6 million to $9.9 million" = "2.5+ million", #7
+                               "$5 million to $7.5 million" = "2.5+ million", #18
+                               "$2.6 million to $4.9 million" = "2.5+ million", #51
+                               "$1 million to 2.5 million" = "$1 million to 2.5 million", #104
+                               "$500,000 to $999,999" = "$500,000 to $999,999", # 81
+                               "$250,000 to $499,999" = "$250,000 to $499,999", #70
+                               "$100,000 to $249,999" = "$100,000 to $249,999", #62
+                               "$50,000 to $99,999" = "$50,000 to $99,999", #42
+                               "Less than $50,000" = "Less than $50,000"), #64
+                               levels = c("2.5+ million",
+                                          "$1 million to 2.5 million",
+                                          "$500,000 to $999,999",
+                                          "$250,000 to $499,999",
+                                          "$100,000 to $249,999",
+                                          "$50,000 to $99,999",
+                                          "Less than $50,000"))) %>% drop_na(Q161_reduced) %>% ggplot(aes(Port_bin, fill = Q161_reduced)) + geom_bar(position="fill") + labs(subtitle = "What are the owner's total investable assets?")
 ```
 
 ```{r Q162}
-# Consolidate and cross-tab across Port_bin
+srpos %>% mutate(Q162_reduced = factor(dplyr::recode(Q162,
+                               "$5.0 million or more" = "$4+ million", # 38
+                               "$4.0 million to $4.9 million" = "$4+ million", # 21
+                               "$3.0 million to $3.9 million" = "$2 to 4 million", # 22
+                               "$2.0 million to $2.9 million" = "$2 to 4 million",#64
+                               "$600K to $799K"               = "$400K to $799K", #32
+                               "$400K to $599K"               = "$400K to $799K"), #53
+                               levels = c("$4+ million",
+                                          "$2 to 4 million",
+                                          "$1.0 million to $1.9 million", #130
+                                          "$800K to $999K", #55
+                                          "$400K to $799K",
+                                          "$200K to $399K", # 62
+                                          "Less than $200K"))) %>% drop_na(Q162_reduced) %>% 
+  ggplot(aes(Port_bin, fill = Q162_reduced)) + geom_bar(position="fill") + labs(subtitle = "What are the owner's total investable assets?")
 ```
 
-## Owners (push to top?)
-
-```{r OWNTYPE}
-srpos %>% mutate(OWNTYPEreduced = ifelse(OWNTYPE == "Individual investor, including joint ownership by two or more individuals, such as husband and wife" | OWNTYPE == "Trustee for estate", "Individual", "Corporate")) %>% drop_na(OWNTYPEreduced) %>% ggplot(aes(Port_bin, fill = OWNTYPEreduced)) + geom_bar(position = "fill")
-```
-
-```{r OWNAGE}
-srpos %>% filter(InPopulation == 1) %>% drop_na(OWNAGE) %>% ggplot(aes(InPopulation, fill = OWNAGE)) +
-  geom_bar(position = "fill")
-```
-
-```{r GENDER}
-srpos %>% filter(InPopulation == 1) %>% drop_na(GENDER) %>% ggplot(aes(InPopulation, fill = GENDER)) +
-  geom_bar(position = "fill")
-```
-
-```{r OHISPAN_ORACE}
-srpos %>% filter(InPopulation == 1) %>% mutate(race = ifelse(OHISPAN == "Yes", "Hispanic", 
-                                                             ifelse(ORACE == "American Indian or Alaskan Native", "Other",
-                                                                    ifelse(ORACE == "White", "White, non-Hispanic", ORACE)))) %>% 
-  drop_na(race) %>% ggplot(aes(InPopulation, fill = race)) +
-  geom_bar(position = "fill")
-```
-
-```{r OINCOME}
-# just 1 bar
-```
-
-```{r PINCTHIS}
-# just 1 bar
-```
-
-```{r PINCALL}
-# just 1 bar
-```
-
-```{r OMNTTIMP}
-# Could try to see what a cross-tab looks like
-```
-
-```{r employ}
-# probably 1 bar
-```
-
-```{r Q160}
-# definitely 1 bar
-```
-
-```{r Q151}
-# This is a double-barreled question, sorta. This really only makes sense if coupled with their portfolio size.
-# Could break this down into a "target" and has met target. Or could somehow try to show both?
-```
-
-```{r OWNVISIT}
-# This would be interesting to see with Port_bin. Might have to consolidate. Not that many do "More than once a week"
-```
-
-```{r OHOWLONG}
-# This would be interesting to see with Port_bin. Might have to consolidate. Relatively few new entrants
-```
-
-```{r Q144}
-# Simple bloonean cross-tab
-```
 ##  Who Responded to the Survey?
 
 Relative to all owners of small rental properties in the US, survey respondants tended to have large portfolios.
