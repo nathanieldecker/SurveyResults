@@ -32,7 +32,7 @@ wrapper <- function(x, ...)
   paste(strwrap(x, ...), collapse = "\n")
 }
 title_width = 70
-subtitle_width = 92
+subtitle_width = 90
 one_bar_chart <- function(x, v, s, t = NULL, ...){
   v <- enquo(v)
   x %>% filter(InPopulation == 1) %>% drop_na(!!v) %>% ggplot(aes(InPopulation, fill = !!v)) +
@@ -47,6 +47,15 @@ binned_bar <- function(x, v, s, t = NULL, ...){
   v <- enquo(v)
   x %>% drop_na(!!v) %>% ggplot(aes(`Portfolio Size of Owner`, fill = !!v)) + geom_bar(position = "fill") + labs(subtitle = wrapper(s, subtitle_width), title = wrapper(t, title_width)) +
     scale_y_continuous(labels = scales::percent) 
+}
+multi_resp_bar <- function(x, v, s = NULL, t = NULL, ...){
+  v <- enquo(v)
+  x %>% drop_na(!!v) %>% dplyr::count(!!v)  %>% mutate(percent = n/sum(n)) %>% 
+    ggplot(aes(x = reorder(!!v, percent), y= percent)) + geom_bar(stat = "identity") + 
+    #geom_text(aes(label=n), hjust=-0.20) + 
+    theme(axis.title.x = element_blank())  + scale_y_continuous(labels = scales::percent) + coord_flip() + 
+    labs(subtitle = wrapper(s, subtitle_width), title = wrapper(t, title_width), 
+         caption = paste("n = ",srpos %>% drop_na(!!v) %>% nrow()))
 }
 srpos %>% mutate(OWNTYPEreduced = ifelse(OWNTYPE == "Individual investor, including joint ownership by two or more individuals, such as husband and wife" | OWNTYPE == "Trustee for estate", "Individual", "Corporate")) %>% drop_na(OWNTYPEreduced) %>% ggplot(aes(`Portfolio Size of Owner`, fill = OWNTYPEreduced)) + geom_bar(position = "fill") + labs(title = "Larger portfolios tend to be held in corporate entities", subtitle = "All corporation types (LLC, C-corp, etc.) classified as \'corporate\'")+
     scale_y_continuous(labels = scales::percent)
@@ -86,7 +95,7 @@ The survey was solicited by mail and conducted online from March to August 2019.
 
 
 ```{r performance, results="asis"}
-pandoc.table(performance_tab, caption="The Survey Response Rate Was Low",
+pandoc.table(performance_tab, caption="Survey Performance,
              justify = "lrr", # style = "multiline",
              missing = " ", big.mark = ',', split.table = Inf)
 ```
@@ -114,7 +123,7 @@ srpos %>% mutate(TYPE = factor(recode(TYPE, "Co-operativeunit above" = "Co-opera
                                "Single family attached house, rowhouse or townhouse (not a condominium)property above" = "Single family attached house, rowhouse or townhouse",
                                "Single family detached houseproperty above" = "Single family detached house",
                                "Unit in a property with 2 to 4 housing unitsproperty containing the rental unit identified above" = "Unit in a property with 2 to 4 housing units",
-                               "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% drop_na(TYPE) %>% ggplot(aes(x = reorder(TYPE, TYPE))) + geom_bar() +theme(axis.title.x = element_blank()) + coord_flip() + labs(title = "[Chart Type 1: A Bar Chart with count data]", subtitle = "[A subtitle that has the wording of the survey question]")
+                               "Unit in a property with 5 or more housing unitsproperty containing the rental unit identified above" = "Unit in a property with 5 or more housing units"), levels = rev(c("Single family detached house","Condominium", "Unit in a property with 2 to 4 housing units","Single family attached house, rowhouse or townhouse", "Unit in a property with 5 or more housing units", "Mobile home","Co-operative")))) %>% multi_resp_bar(TYPE, "[A subtitle that has the wording of the survey question]", "[Chart Type 1: A Bar Chart with count data]")
 ```
 
 The chart below is a **bar chart with percent data**. This chart type also summarizes the responses to multiple choice questions, but is meant to show a contrast between owners with different portfolio sizes. Instead of showing the number of respondents who selected each answer, this chart shows the proportion of owners in each category who chose a particular answer. So, for example, about 80% of owners with 1-2 rental units held the surveyed property under their own name (as opposed to setting up a corporation to hold the properties), whereas only about 30% of owners with more than 50 rental units held the surveyed property under their own name. When response rates for questions are low, I sometimes don't divide up the responses by portfolio size and show only 1 bar.
@@ -347,6 +356,8 @@ srpos %>% mutate(TNTINCOM_reduced = ifelse(TNTINCOM == "Low income" | TNTINCOM =
                                           "Upper income", NA)))) %>%
   binned_bar(TNTINCOM_reduced,"What best describes the household income of tenants at the property?")
 srpos %>% mutate(Q155 = fct_relevel(Q155,"Less than 1 year")) %>% binned_bar(Q155, "How long have the current tenants lived in this unit?")
+srpos %>% mutate(Voucher = ifelse(is.na(RNTSUB_1), RNTSUB_5,RNTSUB_1)) %>% 
+  binned_bar(Voucher, "Is the monthly rent for the tenant occupying the rental unit above partially or completely paid by -","Voucher Use is Fairly Uncommon, May be More Prevalent Among Large Investors")
 ```
 
 
@@ -361,7 +372,7 @@ srpos %>% filter(InPopulation==1) %>% filter(RENT_clean > quantile(srpos$RENT_cl
   ggplot(aes(`Portfolio Size of Owner`, RENT_clean)) + geom_boxplot() + labs(title = "Rents Mostly Ranged from $800-$1,800", subtitle = "
 What is the monthly rent for the rental unit identified above? (If vacant, what is the asking rent?)")
 srpos %>% mutate(`Rent Relative to Market` = (RENT_clean-zri_comp)/zri_comp) %>% filter(rent_cf_zri_ratio > quantile(srpos$rent_cf_zri_ratio, 0.03, na.rm = TRUE) & rent_cf_zri_ratio < quantile(srpos$rent_cf_zri_ratio, 0.97, na.rm = TRUE)) %>% 
-  ggplot(aes(`Portfolio Size of Owner`, `Rent Relative to Market`)) + geom_hline(yintercept = 0, color = "white", size = 2) + geom_boxplot() + labs(title = "Reported Rents Tended to be Close to, but a Little Under ZRI Comps") + 
+  ggplot(aes(`Portfolio Size of Owner`, `Rent Relative to Market`)) + geom_hline(yintercept = 0, color = "white", size = 2) + geom_boxplot() + labs(title = "Reported Rents Tended to be Close to, but a Little Under ZRI Comps", subtitle = "% difference between reported rents and ZRI market rent estimate") + 
     scale_y_continuous(labels = scales::percent)
 srpos %>% mutate(fct_relevel(RentOutcomeStick, "Don't know", "Yes, rent increased by 20% or more","Yes, rent increased but by less than 20%","No change","Yes, rent decreased")) %>% 
   binned_bar(RentOutcomeStick,"Has the rent for this unit changed since March 2017? (If vacant, is the current asking rent different than the rent paid by previous tenant?)")
@@ -375,8 +386,6 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("BUY")), isnt
             `Trash Collection` = BUY_5) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") +theme(axis.title.x = element_blank()) + coord_flip() + labs(title= wrapper("Other than Trash Collection and Water, Utilities are Rarely Included in Rent", width = title_width-3), subtitle = "What utilities are included in rent?")
-srpos %>% mutate(Voucher = ifelse(is.na(RNTSUB_1), RNTSUB_5,RNTSUB_1)) %>% 
-  binned_bar(Voucher, "Is the monthly rent for the tenant occupying the rental unit above partially or completely paid by -","Voucher Use is Fairly Uncommon, May be More Prevalent Among Large Investors")
 srpos %>% filter(InPopulation == 1) %>% one_bar_chart(RENTREG, "Is the unit under rent control, rent stabilization, or some other type of rent regulation?", "Rent Control and Rent Regulation are Very Uncommon")
 srpos %>% 
   drop_na(LENLEASE) %>% ggplot(aes(fct_relevel(LENLEASE,"More than 2 years","2 years","More than 1 year but less than 2 years","1 year","Less than one year or month-to-month", "No lease required"))) + 
@@ -398,7 +407,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("RF")), isnt.
             Other = RF_12) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") +
   aes(reorder(stringr::str_wrap(kind, 35),val)) +theme(axis.title.x = element_blank())  + coord_flip() + labs(title= wrapper("Sampled Owners Considered a Wide Range of Factors When Setting Rents", width = (title_width-20)), subtitle = wrapper("What are the most important factors considered when setting rents at the surveyed property?", width = (subtitle_width-20)))
-srpos %>% mutate(RentOutcome = ifelse(RentOutcome == "At or very close (within $50 per month) to the market rate for similar units", "At or very close (within $50 per month)\nto the market rate for similar units", RentOutcome)) %>% binned_bar(RentOutcome, "Is the rent for the surveyed unit - ","About Half of Owners Charged Market-Rate Rents for their Surveyed Unit")
+srpos %>% mutate(RentOutcome = ifelse(RentOutcome == "At or very close (within $50 per month) to the market rate for similar units", "At or very close (within $50 per month)\nto the market rate for similar units", RentOutcome)) %>% binned_bar(RentOutcome, "Is the rent for the surveyed unit -","About Half of Owners Reported Charging Market-Rate Rents for their Surveyed Unit")
 ```
 
 ## Profitability & Market
@@ -467,7 +476,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("ManagerRole"
             `Make mortgage payments` = ManagerRole_6,
             `Make tax payments or prepare tax estimates` = ManagerRole_7,
             `Initiate legal actions other than evictions` = ManagerRole_8) %>%
-  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) +theme(axis.title.x = element_blank())  + coord_flip() + labs(title= wrapper("Property Managers Most Often Performed Rent Collection, Tenant Selection, Routine Maintenance and Eviction Activities", width=title_width-5), subtitle = "What activities does the manager or management company perform?")
+  gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) +theme(axis.title.x = element_blank())  + coord_flip() + labs(title= wrapper("Property Managers Most Often Performed Rent Collection, Tenant Selection, Routine Maintenance and Eviction Activities", width=title_width-10), subtitle = "What activities does the manager or management company perform?")
 ```
 
 ------
@@ -510,7 +519,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("UPGD")), isn
             `Addition of off-street parking` = UPGD_8,
             Other = UPGD_10) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val)) +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(title= wrapper("Bathroom Renovations were Most Common\nCapital Improvement", width = title_width-5), subtitle = wrapper("In the last 5 years have any of the following capital improvements or upgrades been made or started at the surveyed property?", width = subtitle_width-10))
+  labs(title= wrapper("Bathroom Renovations were Most Common\nCapital Improvement", width = title_width-10), subtitle = wrapper("In the last 5 years have any of the following capital improvements or upgrades been made or started at the surveyed property?", width = subtitle_width-10))
 srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("WorkReason")), isnt.na) %>% 
   select(starts_with("WorkReason"),ExternalReference) %>% 
   transmute(ExternalReference,
@@ -594,7 +603,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q135")), isn
             Other  = Q135_6) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 25),val))  +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(title="Ability to Pay is the Most Common Criteria for Tenant Selection", subtitle = "What criteria are used when selecting tenants for this property?")
+  labs(title=wrapper("Ability to Pay is the Most Common Criteria for Tenant Selection",title_width-5), subtitle = "What criteria are used when selecting tenants for this property?")
 ```
 
 ------
@@ -652,7 +661,7 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("S8")), isnt.
             Other = S8_7) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(subtitle = wrapper("Which of the following reasons describe why you do not want to accept new voucher tenants at this property?", width = subtitle_width-15))
+  labs(subtitle = wrapper("Which of the following reasons describe why you do not want to accept new voucher tenants at this property?", width = subtitle_width-20))
 ```
 
 ------
@@ -689,19 +698,19 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("Q46")), isnt
             Other                                                     = Q46_8) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(title = wrapper("Disruptive Behavior in Surveyed Properties Was Rare, but Took Many forms When it Happened", width = title_width-10), subtitle = wrapper("In the past 2 years, how often did any of the following happen in any of the units or on the grounds of the property?", width = subtitle_width-15))
+  labs(title = wrapper("Disruptive Behavior in Surveyed Properties Was Rare, but Took Many forms When it Happened", width = title_width-10), subtitle = wrapper("In the past 2 years, did any of the following happen in any of the units or on the grounds of the property?", width = subtitle_width-20))
 srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DRP")), isnt.na) %>% 
   select(starts_with("DRP"),ExternalReference) %>% 
   transmute(ExternalReference,
             `By talking to the disruptive individuals in person`                          = DRP_1,
-            `By issuing a warning in writing to the disruptive individuals`              = DRP_2,
+            `By issuing a warning in writing to the disruptive individuals`               = DRP_2,
             `By calling the police and asking them to take action`                        = DRP_5,
             `By requesting the tenant to move, but without beginning eviction procedures` = DRP_6,
             `By beginning eviction procedures`                                            = DRP_7,
             Other                                                                         = DRP_8) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + 
   geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(subtitle = wrapper("In the past 2 years, HOW have you dealt with undesirable or disruptive behavior at this property?", width = subtitle_width))
+  labs(subtitle = wrapper("In the past 2 years, HOW have you dealt with undesirable or disruptive behavior at this property?", width = subtitle_width-5))
 srpos %>% mutate(EVICTNUM = fct_relevel(EVICTNUM,"More than once","Once")) %>% one_bar_chart(EVICTNUM, "In the past 2 years, how many times have tenant eviction procedures been started at this property?", "About 10% of Owners Began an Eviction at the Surveyed Property in the Past 2 Years")
 ```
 
@@ -764,8 +773,8 @@ srpos %>% filter(InPopulation == 1) %>% mutate_at(vars(starts_with("DWNPAY")), i
             `Borrowed using a PERSONAL loan or line of credit` = DWNPAY_10,
             `Borrowed using a BUSINESS loan or line of credit` = DWNPAY_11) %>%
   gather("kind", "val",-ExternalReference) %>% ggplot(aes(reorder(kind,val), as.numeric(val))) + geom_bar(stat = "identity") + aes(reorder(stringr::str_wrap(kind, 30),val)) + xlab(NULL) +theme(axis.title.x = element_blank()) + coord_flip() + 
-  labs(subtitle = wrapper("What was the major source(s) of equity or down payment for this property?", width = (subtitle_width-10)))
-srpos %>% mutate(Mortgage = ifelse(is.na(MS_1),MS_5,MS_1)) %>% binned_bar(Mortgage, "Is there CURRENTLY a mortgage (including deed of trust trust deed, contract to purchase, land contract), home equity line of credit, or similar debt on this property?")
+  labs(subtitle = wrapper("What was the major source(s) of equity or down payment for this property?", width = (subtitle_width-15)))
+srpos %>% mutate(Mortgage = ifelse(is.na(MS_1),MS_5,MS_1)) %>% binned_bar(Mortgage, "Is there CURRENTLY a mortgage (including deed of trust, trust deed, contract to purchase, land contract), home equity line of credit, or similar debt on this property?")
 srpos %>% mutate(`Mortgage Insurance` = fct_recode(MORTINS1,"VA or FHA Insurance" = "The Department of Veterans Affairs (VA)?", "VA or FHA Insurance" = "The Federal Housing Administration (FHA)?", "Private Insurance" = "A private mortgage insurance company?")) %>% mutate(`Mortgage Insurance` = fct_relevel(`Mortgage Insurance`, "None of the above")) %>% 
   binned_bar(`Mortgage Insurance`,"Who insures or guarantees the current FIRST mortgage on this property?")
 srpos %>% mutate(ins = ifelse(is.na(Q152),Q169,Q152)) %>% 
